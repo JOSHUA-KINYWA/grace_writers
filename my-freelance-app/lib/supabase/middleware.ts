@@ -7,9 +7,31 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin') &&
+                       !request.nextUrl.pathname.startsWith('/admin/login')
+  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard')
+
+  // In environments where Supabase vars are not injected (misconfigured deploy previews),
+  // avoid crashing all routes at middleware boot. Protected routes still redirect to auth pages.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (isAdminRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/login'
+      return NextResponse.redirect(url)
+    }
+    if (isDashboardRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
+  }
+
   const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -36,13 +58,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Only require auth for admin routes (except login)
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin') && 
-                       !request.nextUrl.pathname.startsWith('/admin/login')
-  
-  // Only require auth for dashboard routes
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard')
-  
   if (!user && (isAdminRoute || isDashboardRoute)) {
     if (isAdminRoute) {
       const url = request.nextUrl.clone()
