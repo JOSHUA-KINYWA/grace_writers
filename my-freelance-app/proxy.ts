@@ -1,7 +1,7 @@
 import { updateSession } from './lib/supabase/middleware'
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
   // Always allow API routes, static files, and _next
@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
 
   // Let updateSession run to refresh cookies if needed
   const response = await updateSession(request)
-  
+
   // Better session detection - check for multiple Supabase cookies
   const cookieHeader = request.headers.get('cookie') || ''
   const hasSession = cookieHeader.includes('sb-') || cookieHeader.includes('auth-token')
@@ -42,15 +42,3 @@ export async function middleware(request: NextRequest) {
   return response
 }
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
-    String.raw`/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)`,
-  ],
-}
