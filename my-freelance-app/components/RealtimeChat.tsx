@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { FaComments, FaTimes, FaPaperPlane, FaUser, FaMinus, FaWindowMaximize } from 'react-icons/fa'
+import { FaComments, FaTimes, FaPaperPlane, FaMinus, FaWindowMaximize } from 'react-icons/fa'
 import { formatTime } from '@/lib/utils/formatDate'
 
 interface ChatMessage {
@@ -68,6 +68,17 @@ export default function RealtimeChat({
       scrollToBottom()
     }
   }, [messages, isMinimized])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+    globalThis.addEventListener('keydown', onKeyDown)
+    return () => globalThis.removeEventListener('keydown', onKeyDown)
+  }, [isOpen])
 
   async function checkUser() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -437,7 +448,16 @@ export default function RealtimeChat({
 
       {/* Chat Window */}
       {(isOpen || isEmbedded) && (
-        <div className={`${isEmbedded ? 'relative w-full h-full' : `fixed ${isMinimized ? 'bottom-6 right-6 w-80' : 'bottom-6 right-6 w-96 h-[600px]'} z-[998]`} bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 transition-all`}>
+        <>
+          {!isEmbedded && isOpen && !isMinimized && (
+            <button
+              type="button"
+              aria-label="Close chat backdrop"
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-[997] bg-black/20 sm:bg-black/10"
+            />
+          )}
+          <div className={`${isEmbedded ? 'relative w-full h-full' : `fixed bottom-4 right-3 sm:right-6 z-[998] ${isMinimized ? 'w-[310px]' : 'w-[min(96vw,390px)] h-[min(72vh,620px)]'}`} bg-white rounded-xl shadow-2xl flex flex-col border border-gray-200 transition-all`}>
           {/* Chat Header */}
           <div className="bg-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -459,6 +479,7 @@ export default function RealtimeChat({
                   onClick={() => setIsOpen(false)}
                   className="hover:bg-purple-700 rounded p-1 transition"
                   aria-label="Close chat"
+                  title="Close chat"
                 >
                   <FaTimes />
                 </button>
@@ -558,6 +579,7 @@ export default function RealtimeChat({
             </>
           )}
         </div>
+        </>
       )}
     </>
   )

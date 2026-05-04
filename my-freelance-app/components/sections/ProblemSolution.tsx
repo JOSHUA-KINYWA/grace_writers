@@ -36,7 +36,7 @@ export default function ProblemSolution() {
           className="text-center mb-12"
         >
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            STRUGGLING WITH WRITING? YOU'RE NOT ALONE
+            STRUGGLING WITH WRITING? YOU&apos;RE NOT ALONE
           </h2>
         </motion.div>
 

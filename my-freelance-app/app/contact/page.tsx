@@ -44,7 +44,7 @@ export default function ContactPage() {
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Message Sent!</h2>
           <p className="text-gray-600 mb-6">
-            Thank you for contacting us. We'll get back to you within 2 hours.
+            Thank you for contacting us. We&apos;ll get back to you within 2 hours.
           </p>
           <WhatsAppButton
             message="Hi! I just submitted a contact form. Can we discuss my project?"
@@ -65,7 +65,7 @@ export default function ContactPage() {
             Get in Touch
           </h1>
           <p className="text-xl text-gray-600">
-            Have a project in mind? Let's discuss how I can help you.
+            Have a project in mind? Let&apos;s discuss how I can help you.
           </p>
         </div>
 

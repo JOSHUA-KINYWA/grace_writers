@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server'
 // POST - Create or update order rating
 export async function POST(req: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const userResult = await supabase.auth.getUser()
+  const user = userResult.data?.user
 
   if (!user) {
     return NextResponse.json(
@@ -132,17 +133,82 @@ export async function POST(req: Request) {
 // GET - Fetch order rating
 export async function GET(req: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const userResult = await supabase.auth.getUser()
+  const user = userResult.data?.user
   const isAdmin = user?.user_metadata?.role === 'admin'
   const { searchParams } = new URL(req.url)
   const orderId = searchParams.get('order_id')
+  const completed = searchParams.get('completed') === 'true'
 
   try {
-    if (!orderId) {
+    if (!orderId && !completed) {
       return NextResponse.json(
-        { error: 'Missing order_id parameter' },
+        { error: 'Missing order_id or completed parameter' },
         { status: 400 }
       )
+    }
+
+    if (completed) {
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      // Prefer client_id from auth metadata (avoids clients table RLS issues)
+      const metaClientId = user.user_metadata?.client_id as string | undefined
+      let clientId: string | null = metaClientId || null
+
+      // Fallback: attempt to resolve client id from clients table (best-effort)
+      if (!clientId) {
+        let clientQuery = supabase.from('clients').select('id')
+        if (user.email) {
+          clientQuery = clientQuery.or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
+        } else {
+          clientQuery = clientQuery.eq('auth_user_id', user.id)
+        }
+
+        const { data: clientData, error: clientError } = await clientQuery.limit(1)
+        if (clientError) {
+          // If RLS blocks this lookup, do not hard-fail the whole dashboard.
+          console.warn('order-ratings: unable to resolve client via clients table', clientError)
+          return NextResponse.json([], { status: 200 })
+        }
+
+        const client = Array.isArray(clientData) ? clientData[0] : clientData
+        clientId = client?.id || null
+      }
+
+      if (!clientId) return NextResponse.json([], { status: 200 })
+
+      const { data: completedOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, title, created_at')
+        .eq('client_id', clientId)
+        .eq('status', 'completed')
+
+      if (ordersError) throw ordersError
+      if (!completedOrders || completedOrders.length === 0) {
+        return NextResponse.json([])
+      }
+
+      const orderIds = completedOrders.map((order: any) => order.id)
+      const { data, error } = await supabase
+        .from('order_ratings')
+        .select('*')
+        .in('order_id', orderIds)
+
+      // If the ratings table doesn't exist yet (migration not applied), don't hard-fail the dashboard.
+      if (error && (error as any).code === 'PGRST205') {
+        console.warn('order-ratings: order_ratings table missing (PGRST205); returning empty list')
+        return NextResponse.json([], { status: 200 })
+      }
+      if (error) throw error
+
+      const ratings = (data || []).map((rating: any) => ({
+        ...rating,
+        order: completedOrders.find((order: any) => order.id === rating.order_id)
+      }))
+
+      return NextResponse.json(ratings)
     }
 
     // if not admin, ensure user owns the order before fetching rating
@@ -171,6 +237,11 @@ export async function GET(req: Request) {
       .eq('order_id', orderId)
       .single()
 
+    // If the ratings table doesn't exist yet (migration not applied), treat as "no rating".
+    if (error && (error as any).code === 'PGRST205') {
+      console.warn('order-ratings: order_ratings table missing (PGRST205); returning null')
+      return NextResponse.json(null, { status: 200 })
+    }
     if (error && error.code === 'PGRST116') {
       // No rating found, return null
       return NextResponse.json(null)
@@ -180,8 +251,13 @@ export async function GET(req: Request) {
 
     return NextResponse.json(data)
   } catch (error: any) {
+    console.error('order-ratings GET failed:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch rating' },
+      {
+        error: error?.message || 'Failed to fetch rating',
+        details: error?.details || error?.toString?.() || null,
+        code: error?.code || null
+      },
       { status: 500 }
     )
   }

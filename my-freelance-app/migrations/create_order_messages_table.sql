@@ -28,7 +28,7 @@ create policy "Users can read order messages" on order_messages
       where o.id = order_messages.order_id
       and c.email = auth.jwt() ->> 'email'
     )
-    or auth.jwt() ->> 'user_metadata' ->> 'role' = 'admin'
+    or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- RLS Policy: Users can insert messages into their own orders or if admin
@@ -43,11 +43,11 @@ create policy "Users can insert order messages" on order_messages
         where o.id = order_messages.order_id
         and c.email = auth.jwt() ->> 'email'
       )
-      or auth.jwt() ->> 'user_metadata' ->> 'role' = 'admin'
+      or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
     )
   );
 
 -- RLS Policy: Only admins can delete messages
 create policy "Admins can delete order messages" on order_messages
   for delete
-  using (auth.jwt() ->> 'user_metadata' ->> 'role' = 'admin');
+  using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
+  const [checking, setChecking] = useState(true)
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -20,7 +21,34 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [step, setStep] = useState(1)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  const referralCode = useMemo(() => {
+    const raw = searchParams?.get('ref')
+    return raw ? raw.trim() : ''
+  }, [searchParams])
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // User is already logged in - redirect to dashboard
+          router.replace('/dashboard')
+          return
+        }
+      } catch (err) {
+        console.error('Auth check error:', err)
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    checkAuth()
+  }, [supabase, router])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,14 +85,66 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-      // Create client record
-      const { error: clientError } = await supabase
+      // Create client record (link to auth user)
+      const { data: clientRow, error: clientError } = await supabase
         .from('clients')
         .insert({
+          auth_user_id: data.user.id,
           email: formData.email,
           name: formData.name,
           phone: formData.phone
         })
+        .select('id')
+        .single()
+
+      if (!clientError && clientRow?.id) {
+        // Store client_id into auth metadata for easier filtering elsewhere in the app
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              client_id: clientRow.id,
+              role: 'client',
+            },
+          })
+        } catch (error_) {
+          console.error('Failed to update user metadata:', error_)
+        }
+      }
+
+      // If user signed up with a referral code, claim it (best-effort)
+      if (referralCode) {
+        try {
+          await fetch('/api/referrals/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: referralCode }),
+          })
+        } catch (error_) {
+          console.error('Failed to claim referral:', error_)
+        }
+      }
+
+      // Ensure the new client has their own referral code (best-effort)
+      try {
+        await fetch('/api/referrals/ensure-code', { method: 'POST' })
+      } catch (error_) {
+        console.error('Failed to ensure referral code:', error_)
+      }
+
+      // Send admin notification about new account
+      try {
+        await fetch('/api/new-account-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName: formData.name,
+            clientEmail: formData.email,
+            clientPhone: formData.phone,
+          }),
+        })
+      } catch (error_) {
+        console.error('Failed to send account notification:', error_)
+      }
 
       router.push('/dashboard')
     }
@@ -81,6 +161,21 @@ export default function SignupPage() {
     }
     setError('')
     setStep(2)
+  }
+
+  // Show loading spinner while checking authentication
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin w-12 h-12 text-purple-600" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

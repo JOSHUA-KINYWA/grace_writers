@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { FaFile, FaUpload, FaTimes, FaDownload, FaSave, FaTrash } from 'react-icons/fa'
+import { FaFile, FaUpload, FaDownload, FaSave, FaTrash } from 'react-icons/fa'
 import RevisionsPanel from './RevisionsPanel'
 import AdminOrderChat from './AdminOrderChat'
 
@@ -12,7 +11,104 @@ interface OrderManageFormProps {
   order: any
 }
 
-export default function OrderManageForm({ order: initialOrder }: OrderManageFormProps) {
+async function notifyClientAboutUpload(
+  supabase: ReturnType<typeof createClient>,
+  clientUser: any,
+  uploadedUrls: string[],
+  order: any
+) {
+  if (!clientUser) return
+
+  const { data: clientRecord } = await supabase
+    .from('clients')
+    .select('id, auth_user_id')
+    .eq('email', clientUser.email)
+    .single()
+
+  if (!clientRecord) return
+
+  const notifyUserId = clientRecord.auth_user_id || clientRecord.id
+  await supabase
+    .from('notifications')
+    .insert({
+      user_id: notifyUserId,
+      order_id: order.id,
+      type: 'file_upload',
+      title: 'New Deliverables Available',
+      message: `Admin has uploaded ${uploadedUrls.length} file(s) for your order: ${order.title}`
+    })
+    .catch((error_) => console.error('Notification send failed:', error_))
+
+  // Send email notification to client (if email configured)
+  try {
+    if (!clientUser?.email) return
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: clientUser.email,
+        subject: `New deliverables for your order: ${order.title}`,
+        text: `Admin uploaded ${uploadedUrls.length} file(s) for your order. Please sign in to your dashboard to view and download the files.`,
+        html: `<p>Admin uploaded ${uploadedUrls.length} file(s) for your order <strong>${order.title}</strong>.</p><p><a href="${location.origin}/dashboard/orders/${order.id}">View order and download files</a></p>`
+      })
+    })
+  } catch (error_) {
+    console.error('Send email to client failed:', error_)
+  }
+}
+
+async function generateSignedUrls(urls: string[], setter: (urls: string[]) => void) {
+  try {
+    const signed = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          // Check if this is already a bucket-relative path (order-*/*)
+          let filePath = url
+
+          // If it's a full URL with /order-files/, extract the path
+          if (url.includes('/order-files/')) {
+            const parts = url.split('/order-files/')
+            if (parts.length >= 2) {
+              filePath = parts[1]
+            }
+          }
+
+          const res = await fetch('/api/signed-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+          })
+
+          const json = await res.json()
+          if (res.ok && json.signedUrl) return json.signedUrl
+          console.error('Signed URL fetch failed:', json.error || json)
+          return url
+        } catch (error_) {
+          console.error('Fetch signed URL error:', error_)
+          return url
+        }
+      })
+    )
+    setter(signed)
+  } catch (error_) {
+    console.error('Error generating signed URLs:', error_)
+  }
+}
+
+function getStatusColor(status: string) {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    quote_sent: 'bg-blue-100 text-blue-800 border-blue-300',
+    in_progress: 'bg-purple-100 text-purple-800 border-purple-300',
+    revision: 'bg-orange-100 text-orange-800 border-orange-300',
+    delivered: 'bg-teal-100 text-teal-800 border-teal-300',
+    completed: 'bg-green-100 text-green-800 border-green-300',
+    cancelled: 'bg-red-100 text-red-800 border-red-300',
+  }
+  return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
+}
+
+export default function OrderManageForm({ order: initialOrder }: Readonly<OrderManageFormProps>) {
   const [order, setOrder] = useState(initialOrder)
   const [loading, setLoading] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState(false)
@@ -30,7 +126,6 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
     admin_notes: order.admin_notes || '',
   })
 
-  const [deliveryFiles, setDeliveryFiles] = useState<File[]>([])
   const [clientFileUrls, setClientFileUrls] = useState<string[]>([])
   const [deliverableUrls, setDeliverableUrls] = useState<string[]>([])
   const [deletingFile, setDeletingFile] = useState<string | null>(null)
@@ -38,10 +133,10 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
   // Extract timestamp from filename (format: timestamp_random.ext)
   function getFileUploadTime(url: string): string {
     const parts = url.split('/')
-    const filename = parts[parts.length - 1]
+    const filename = parts.at(-1) || ''
     const timestampStr = filename.split('_')[0]
-    const timestamp = parseInt(timestampStr)
-    if (isNaN(timestamp)) return 'Unknown'
+    const timestamp = Number.parseInt(timestampStr, 10)
+    if (Number.isNaN(timestamp)) return 'Unknown'
     try {
       const date = new Date(timestamp)
       if (Number.isNaN(date.getTime())) return 'Unknown'
@@ -142,47 +237,7 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
         .eq('id', order.id)
 
       if (updateError) throw updateError
-      // Create notification for client (use clients table id as fallback)
-      if (clientUser) {
-        const { data: clientRecord } = await supabase
-          .from('clients')
-          .select('id, auth_user_id')
-          .eq('email', clientUser.email)
-          .single()
-
-        if (clientRecord) {
-          // Use auth_user_id if available, otherwise use client id
-          const notifyUserId = clientRecord.auth_user_id || clientRecord.id
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: notifyUserId,
-              order_id: order.id,
-              type: 'file_upload',
-              title: 'New Deliverables Available',
-              message: `Admin has uploaded ${uploadedUrls.length} file(s) for your order: ${order.title}`
-            })
-            .catch(err => console.error('Notification send failed:', err))
-          
-          // Send email notification to client (if email configured)
-          try {
-            if (clientUser?.email) {
-              await fetch('/api/send-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  to: clientUser.email,
-                  subject: `New deliverables for your order: ${order.title}`,
-                  text: `Admin uploaded ${uploadedUrls.length} file(s) for your order. Please sign in to your dashboard to view and download the files.`,
-                  html: `<p>Admin uploaded ${uploadedUrls.length} file(s) for your order <strong>${order.title}</strong>.</p><p><a href="${location.origin}/dashboard/orders/${order.id}">View order and download files</a></p>`
-                })
-              })
-            }
-          } catch (emailErr) {
-            console.error('Send email to client failed:', emailErr)
-          }
-        }
-      }
+      await notifyClientAboutUpload(supabase, clientUser, uploadedUrls, order)
 
       setOrder({ ...order, deliverables: updatedDeliverables })
       alert('Files uploaded successfully!')
@@ -191,45 +246,6 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
       alert(`Error uploading files: ${error.message}`)
     } finally {
       setUploadingFiles(false)
-    }
-  }
-
-  // Generate signed URLs for any storage links so admin can open private files
-  async function generateSignedUrls(urls: string[], setter: (urls: string[]) => void) {
-    try {
-      const signed = await Promise.all(
-        urls.map(async (url) => {
-          try {
-            // Check if this is already a bucket-relative path (order-*/*)
-            let filePath = url
-            
-            // If it's a full URL with /order-files/, extract the path
-            if (url.includes('/order-files/')) {
-              const parts = url.split('/order-files/')
-              if (parts.length >= 2) {
-                filePath = parts[1]
-              }
-            }
-
-            const res = await fetch('/api/signed-url', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filePath })
-            })
-
-            const json = await res.json()
-            if (res.ok && json.signedUrl) return json.signedUrl
-            console.error('Signed URL fetch failed:', json.error || json)
-            return url
-          } catch (fetchErr) {
-            console.error('Fetch signed URL error:', fetchErr)
-            return url
-          }
-        })
-      )
-      setter(signed)
-    } catch (err) {
-      console.error('Error generating signed URLs:', err)
     }
   }
 
@@ -248,47 +264,22 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
     setLoading(true)
 
     try {
-      const updateData = {
-        status: formData.status,
-        quote_amount: formData.quote_amount ? parseFloat(formData.quote_amount) : null,
-        paid_amount: formData.paid_amount ? parseFloat(formData.paid_amount) : null,
-        payment_status: formData.payment_status,
-        admin_notes: formData.admin_notes,
-        updated_at: new Date().toISOString(),
-      }
+      const response = await fetch('/api/admin/orders/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          status: formData.status,
+          quote_amount: formData.quote_amount ? Number.parseFloat(formData.quote_amount) : null,
+          paid_amount: formData.paid_amount ? Number.parseFloat(formData.paid_amount) : null,
+          payment_status: formData.payment_status,
+          admin_notes: formData.admin_notes,
+        }),
+      })
 
-      // If status changed to completed, set completed_at
-      if (formData.status === 'completed' && order.status !== 'completed') {
-        Object.assign(updateData, { completed_at: new Date().toISOString() })
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', order.id)
-
-      if (error) throw error
-
-      // Create notification for status change (use clients table id)
-      if (clientUser) {
-        const { data: clientRecord } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('email', clientUser.email)
-          .single()
-
-        if (clientRecord) {
-          const notifyUserId = clientRecord.auth_user_id || clientRecord.id
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: notifyUserId,
-              order_id: order.id,
-              type: 'order_update',
-              title: 'Order Status Updated',
-              message: `Your order "${order.title}" status changed to: ${formData.status.replace('_', ' ')}`
-            })
-        }
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || 'Failed to update order')
       }
 
       alert('Order updated successfully!')
@@ -298,19 +289,6 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
     } finally {
       setLoading(false)
     }
-  }
-
-  function getStatusColor(status: string) {
-    const colors: any = {
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      quote_sent: 'bg-blue-100 text-blue-800 border-blue-300',
-      in_progress: 'bg-purple-100 text-purple-800 border-purple-300',
-      revision: 'bg-orange-100 text-orange-800 border-orange-300',
-      delivered: 'bg-teal-100 text-teal-800 border-teal-300',
-      completed: 'bg-green-100 text-green-800 border-green-300',
-      cancelled: 'bg-red-100 text-red-800 border-red-300',
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
   }
 
   return (
@@ -389,7 +367,7 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
                 <div className="space-y-2">
                   {clientFileUrls.map((url: string, index: number) => (
                     <a
-                      key={index}
+                      key={url}
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -436,7 +414,7 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
 
                     return (
                       <div
-                        key={index}
+                        key={filePath || url}
                         className="bg-white px-4 py-3 rounded border border-green-300 flex items-center justify-between hover:shadow-md transition"
                       >
                         <div className="flex-1 min-w-0">
@@ -505,7 +483,7 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
         </div>
 
         {/* Client Messages */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div>
           <AdminOrderChat 
             orderId={order.id}
             clientName={order.clients?.name || 'Client'}
@@ -520,10 +498,11 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label htmlFor="order-status" className="block text-sm font-bold text-gray-700 mb-2">
                 Status *
               </label>
               <select
+                id="order-status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 required
@@ -540,10 +519,11 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label htmlFor="order-quote-amount" className="block text-sm font-bold text-gray-700 mb-2">
                 Quote Amount ($)
               </label>
               <input
+                id="order-quote-amount"
                 type="number"
                 step="0.01"
                 value={formData.quote_amount}
@@ -554,10 +534,11 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label htmlFor="order-paid-amount" className="block text-sm font-bold text-gray-700 mb-2">
                 Paid Amount ($)
               </label>
               <input
+                id="order-paid-amount"
                 type="number"
                 step="0.01"
                 value={formData.paid_amount}
@@ -568,10 +549,11 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label htmlFor="order-payment-status" className="block text-sm font-bold text-gray-700 mb-2">
                 Payment Status
               </label>
               <select
+                id="order-payment-status"
                 value={formData.payment_status}
                 onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold"
@@ -583,10 +565,11 @@ export default function OrderManageForm({ order: initialOrder }: OrderManageForm
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label htmlFor="order-admin-notes" className="block text-sm font-bold text-gray-700 mb-2">
                 Admin Notes
               </label>
               <textarea
+                id="order-admin-notes"
                 rows={4}
                 value={formData.admin_notes}
                 onChange={(e) => setFormData({ ...formData, admin_notes: e.target.value })}

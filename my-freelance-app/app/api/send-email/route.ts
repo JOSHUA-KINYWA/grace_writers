@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
+import { createSmtpTransport } from '@/lib/smtp'
 
 export async function POST(req: Request) {
   try {
@@ -10,26 +10,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing to/subject/text/html' }, { status: 400 })
     }
 
-    const user = process.env.GMAIL_USER
-    const pass = process.env.GMAIL_PASS
-
-    if (!user || !pass) {
-      console.error('GMAIL_USER or GMAIL_PASS not set in environment')
-      return NextResponse.json({ error: 'Email not configured on server' }, { status: 500 })
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user,
-        pass,
-      },
-    })
+    const transporter = createSmtpTransport()
+    const fromEmail = process.env.SMTP_USER || process.env.GMAIL_USER || 'noreply@gracewriters.com'
 
     const info = await transporter.sendMail({
-      from: `Grace Writers <${user}>`,
+      from: `Grace Writers <${fromEmail}>`,
       to,
       subject,
       text,

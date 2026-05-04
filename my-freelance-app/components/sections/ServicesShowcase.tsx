@@ -10,7 +10,7 @@ const services = [
     icon: FaBook,
     title: 'ACADEMIC WRITING',
     items: ['Essays', 'Research Papers', 'Theses'],
-    price: 'From $50',
+    price: '$5-10 per page',
     color: 'blue',
     href: '/services/academic-writing'
   },
@@ -18,7 +18,7 @@ const services = [
     icon: FaBriefcase,
     title: 'BUSINESS CONTENT',
     items: ['Proposals', 'Reports', 'White Papers'],
-    price: 'From $80',
+    price: '$5-10 per page',
     color: 'purple',
     href: '/services/business-content'
   },
@@ -26,7 +26,7 @@ const services = [
     icon: FaCog,
     title: 'TECHNICAL DOCUMENTATION',
     items: ['API Docs', 'User Guides', 'SOPs'],
-    price: 'From $100',
+    price: '$5-10 per page',
     color: 'green',
     href: '/services/technical-documentation'
   },
@@ -34,7 +34,7 @@ const services = [
     icon: FaBlog,
     title: 'BLOG & SEO CONTENT',
     items: ['Blog Posts', 'Website Copy', 'Product Desc'],
-    price: 'From $30',
+    price: '$5-10 per page',
     color: 'orange',
     href: '/services/blog-seo'
   },
@@ -42,7 +42,7 @@ const services = [
     icon: FaFileAlt,
     title: 'RESUMES & COVER LETTERS',
     items: ['Professional Resume', 'LinkedIn Profile', 'Career Docs'],
-    price: 'From $60',
+    price: '$5-10 per page',
     color: 'pink',
     href: '/services/resumes'
   },
@@ -50,7 +50,7 @@ const services = [
     icon: FaMagic,
     title: 'CREATIVE WRITING',
     items: ['Scripts', 'Stories', 'Speeches'],
-    price: 'From $40',
+    price: '$5-10 per page',
     color: 'indigo',
     href: '/services/creative-writing'
   }
@@ -119,12 +119,9 @@ export default function ServicesShowcase() {
         </div>
 
         <div className="text-center">
-          <Link
-            href="/services"
-            className="inline-block text-purple-600 font-semibold hover:text-purple-700 transition"
-          >
-            View All 25+ Services →
-          </Link>
+          <p className="text-gray-600">
+            Contact us via WhatsApp for detailed enquiries and custom quotes.
+          </p>
         </div>
       </div>
     </section>

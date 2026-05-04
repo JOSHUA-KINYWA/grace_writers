@@ -12,7 +12,7 @@ export default async function PortfolioPage() {
             Our Portfolio
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Real projects, real results. See how we've helped clients achieve their goals.
+            Real projects, real results. See how we&apos;ve helped clients achieve their goals.
           </p>
         </div>
 

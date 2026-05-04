@@ -33,8 +33,10 @@ export default function Hero() {
         setDisplayText(message.slice(0, displayText.length - 1))
       }, 50)
     } else if (isDeleting && displayText.length === 0) {
-      setIsDeleting(false)
-      setCurrentMessage((prev) => (prev + 1) % typingMessages.length)
+      timeout = setTimeout(() => {
+        setIsDeleting(false)
+        setCurrentMessage((prev) => (prev + 1) % typingMessages.length)
+      }, 0)
     }
 
     return () => clearTimeout(timeout)

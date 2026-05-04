@@ -33,13 +33,13 @@ export default async function DashboardPage() {
     clientData = altClientData
   }
 
-  // Fetch orders for this client
+  // Fetch orders for this client, including service metadata for filtering
   let orders: any[] = []
-  if (clientData && (clientData as any).id) {
+  if (clientData?.id) {
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('*')
-      .eq('client_id', (clientData as any).id)
+      .select('*, services:service_id (id, title, slug, category)')
+      .eq('client_id', clientData.id)
       .order('created_at', { ascending: false })
 
     orders = ordersData || []

@@ -10,11 +10,38 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get unread message count per order
+    // Resolve client id (prefer auth metadata; fallback to clients table best-effort)
+    const metaClientId = user.user_metadata?.client_id as string | undefined
+    let clientId: string | null = metaClientId || null
+
+    if (!clientId) {
+      let clientQuery = supabase.from('clients').select('id')
+      if (user.email) {
+        clientQuery = clientQuery.or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
+      } else {
+        clientQuery = clientQuery.eq('auth_user_id', user.id)
+      }
+
+      const { data: clientData, error: clientError } = await clientQuery.limit(1)
+      if (clientError) {
+        console.warn('unread-message-count: unable to resolve client via clients table', clientError)
+        return NextResponse.json({ unreadByOrder: {} }, { status: 200 })
+      }
+      const client = Array.isArray(clientData) ? clientData[0] : clientData
+      clientId = client?.id || null
+    }
+
+    if (!clientId) {
+      return NextResponse.json({ unreadByOrder: {} }, { status: 200 })
+    }
+
+    // Get unread message count per order for THIS client only.
+    // Without this join, we'd count unread messages belonging to other clients too.
     const { data, error } = await supabase
       .from('order_messages')
-      .select('order_id, id, sender_id')
+      .select('order_id, id, sender_id, orders!inner(client_id)')
       .eq('read_status', 'unread')
+      .eq('orders.client_id', clientId)
 
     if (error) {
       // If table doesn't have read_status column yet, return empty

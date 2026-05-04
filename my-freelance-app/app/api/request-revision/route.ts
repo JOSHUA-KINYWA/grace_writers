@@ -93,17 +93,49 @@ export async function POST(req: Request) {
 
     // Create notification for admin (handle errors with try/catch)
     try {
-      const { error: notifError } = await (supabase as any)
-        .from('notifications')
-        .insert({
-          user_id: user.id, // Will notify order creator/admin
-          order_id: orderId,
-          type: 'revision_requested',
-          title: 'Revision Requested',
-          message: `Client requested revision #${revisionNumber}: ${reason || 'See order for details'}`
-        })
+      const { data: adminProfiles, error: adminProfileError } = await (supabase as any)
+        .from('profiles')
+        .select('id')
+        .eq('account_type', 'admin')
+        .limit(1)
 
-      if (notifError) console.error('Notification failed:', notifError)
+      let adminUserId: string | null = null
+
+      if (adminProfileError) {
+        console.error('Admin profile lookup failed:', adminProfileError)
+      } else if (adminProfiles && adminProfiles.length > 0) {
+        adminUserId = adminProfiles[0].id
+      }
+
+      if (!adminUserId) {
+        const { data: adminUsers, error: adminUserError } = await (supabase as any)
+          .from('users')
+          .select('id, user_metadata')
+          .or('user_metadata->>role.eq.admin,email.ilike.%admin%')
+          .limit(1)
+
+        if (adminUserError) {
+          console.error('Admin user lookup failed:', adminUserError)
+        } else if (adminUsers && adminUsers.length > 0) {
+          adminUserId = adminUsers[0].id
+        }
+      }
+
+      if (adminUserId) {
+        const { error: notifError } = await (supabase as any)
+          .from('notifications')
+          .insert({
+            user_id: adminUserId,
+            order_id: orderId,
+            type: 'revision_requested',
+            title: 'Revision Requested',
+            message: `Client requested revision #${revisionNumber}: ${reason || 'See order for details'}`
+          })
+
+        if (notifError) console.error('Notification failed:', notifError)
+      } else {
+        console.error('No admin user found to send revision notification')
+      }
     } catch (err) {
       console.error('Notification failed:', err)
     }

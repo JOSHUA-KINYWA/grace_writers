@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { FaArrowLeft, FaComments, FaSpinner } from 'react-icons/fa'
 import { formatDateTime } from '@/lib/utils/formatDate'
+import { formatOrderId } from '@/lib/utils/formatOrderId'
 import { createClient } from '@/lib/supabase/client'
 import ClientLayout from '@/components/client/ClientLayout'
 
@@ -148,7 +149,7 @@ export default function MessagesPage() {
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">Order: {msgs[0]?.orders?.title || 'Unknown Order'}</h2>
-                    <p className="text-sm text-gray-600 mt-1">ID: {orderId} • {msgs.length} message{msgs.length !== 1 ? 's' : ''}</p>
+                    <p className="text-sm text-gray-600 mt-1">ID: {formatOrderId(orderId)} • {msgs.length} message{msgs.length !== 1 ? 's' : ''}</p>
                   </div>
                   <Link
                     href={getOrderLink(orderId)}

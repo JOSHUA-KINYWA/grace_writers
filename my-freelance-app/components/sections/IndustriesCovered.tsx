@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   FaLaptop, FaHeartbeat, FaDollarSign, FaGraduationCap, FaGavel,
@@ -102,13 +103,13 @@ export default function IndustriesCovered() {
         </div>
 
         <div className="text-center mt-12 space-x-4">
-          <a href="/portfolio" className="text-purple-600 font-semibold hover:text-purple-700 transition">
+          <Link href="/portfolio" className="text-purple-600 font-semibold hover:text-purple-700 transition">
             View Full Subject List →
-          </a>
+          </Link>
           <span className="text-gray-400">|</span>
-          <a href="/contact" className="text-purple-600 font-semibold hover:text-purple-700 transition">
-            Don't See Yours? Ask Me! →
-          </a>
+          <Link href="/contact" className="text-purple-600 font-semibold hover:text-purple-700 transition">
+            Don&apos;t See Yours? Ask Me! →
+          </Link>
         </div>
       </div>
     </section>

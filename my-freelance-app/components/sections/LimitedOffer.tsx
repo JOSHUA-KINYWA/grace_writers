@@ -42,7 +42,7 @@ export default function LimitedOffer() {
           className="space-y-6"
         >
           <h2 className="text-3xl md:text-4xl font-bold">
-            🔥 SPECIAL OFFER - DON'T MISS OUT! 🔥
+            🔥 SPECIAL OFFER - DON&apos;T MISS OUT! 🔥
           </h2>
 
           <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6">
@@ -102,7 +102,7 @@ export default function LimitedOffer() {
 
           <div>
             <WhatsAppButton
-              message="Hi! I'd like to claim the FIRST20 discount. Can we discuss my project?"
+              message="Hi! I&apos;d like to claim the FIRST20 discount. Can we discuss my project?"
               className="bg-white text-orange-600 hover:bg-gray-100 text-lg px-8 py-4"
             >
               Claim Your Discount Now →

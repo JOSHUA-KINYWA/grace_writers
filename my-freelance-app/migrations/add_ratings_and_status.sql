@@ -27,7 +27,7 @@ create policy "Clients can view their order ratings" on order_ratings
       where o.id = order_ratings.order_id
       and c.auth_user_id = auth.uid()
     )
-    or auth.jwt() ->> 'user_metadata' ->> 'role' = 'admin'
+    or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- RLS Policy: Clients can insert ratings for their own orders
@@ -57,7 +57,7 @@ create policy "Clients can update their own ratings" on order_ratings
 -- RLS Policy: Admins can delete ratings
 create policy "Admins can delete ratings" on order_ratings
   for delete
-  using (auth.jwt() ->> 'user_metadata' ->> 'role' = 'admin');
+  using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
 
 -- Create user_status table for online presence
 create table user_status (

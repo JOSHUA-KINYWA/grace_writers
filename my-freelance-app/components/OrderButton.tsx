@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { FaShoppingCart } from 'react-icons/fa'
@@ -12,21 +11,23 @@ interface OrderButtonProps {
   className?: string
 }
 
-export default function OrderButton({ serviceId, serviceTitle, className = '' }: OrderButtonProps) {
+export default function OrderButton({ serviceId, serviceTitle, className = '' }: Readonly<OrderButtonProps>) {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
   const supabase = createClient()
-
-  useEffect(() => {
-    checkAuth()
-  }, [])
 
   async function checkAuth() {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
     setLoading(false)
   }
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      checkAuth()
+    }, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   if (loading) {
     return (

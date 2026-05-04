@@ -28,12 +28,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Routes that authenticated users should NOT access (unauthenticated-only pages)
-  // This is more restrictive now - allow public pages for everyone
-  const marketingPages = ['/', '/about', '/contact', '/services', '/portfolio']
-  
-  // Public pages - allow access to everyone including authenticated users
-  // (Authenticated users can still see marketing when they want)
+  // Pages intended ONLY for visitors who are NOT logged in.
+  // If a user has a session, keep them in the app experience.
+  const unauthOnlyPages = ['/', '/login', '/signup']
+  const isUnauthOnly = unauthOnlyPages.includes(pathname)
+
+  if (hasSession && isUnauthOnly) {
+    const dashboardUrl = new URL('/dashboard', request.url)
+    return NextResponse.redirect(dashboardUrl)
+  }
 
   // Public pages - allow access
   return response
@@ -48,6 +51,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    String.raw`/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)`,
   ],
 }

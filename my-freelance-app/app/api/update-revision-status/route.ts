@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
-import nodemailer from 'nodemailer'
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-})
+import { createSmtpTransport } from '@/lib/smtp'
 
 export async function POST(req: Request) {
   try {
@@ -107,19 +97,20 @@ export async function POST(req: Request) {
     // Send email to client if revision completed
     if (status === 'completed') {
       try {
+        const transporter = createSmtpTransport()
         const clientEmail = revision.orders.clients.email
         const clientName = revision.orders.clients.name
         const orderTitle = revision.orders.title
         const revisionNumber = revision.revision_number
 
         await transporter.sendMail({
-          from: process.env.GMAIL_USER,
+          from: process.env.SMTP_USER || process.env.GMAIL_USER,
           to: clientEmail,
           subject: `Revision #${revisionNumber} Completed - ${orderTitle}`,
           html: `
             <h2>Revision Completed!</h2>
             <p>Hi ${clientName},</p>
-            <p>Your revision #${revisionNumber} for "<strong>${orderTitle}</strong>" has been completed.</p>
+            <p>Your revision #${revisionNumber} for "<strong>${orderTitle}</strong> has been completed.</p>
             <p>Please check your order dashboard to review the updated files.</p>
             <p>Thank you for working with us!</p>
           `,

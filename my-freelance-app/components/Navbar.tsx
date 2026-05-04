@@ -3,15 +3,15 @@
 import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { FaBars, FaTimes, FaUser, FaSignOutAlt, FaBell, FaCog, FaLock, FaSearch } from 'react-icons/fa'
+import { FaBars, FaTimes, FaUser, FaSignOutAlt, FaCog, FaLock, FaSearch } from 'react-icons/fa'
 import { createClient } from '@/lib/supabase/client'
 import WhatsAppButton from './WhatsAppButton'
+import NotificationBadge from './NotificationBadge'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [unreadCount, setUnreadCount] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -51,31 +51,13 @@ export default function Navbar() {
     }
   }, [supabase, user])
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await fetch('/api/unread-message-count')
-      if (!response.ok) {
-        // Silently fail for 401 (not authenticated) and other errors
-        if (response.status !== 401) {
-          console.error('Error fetching unread count:', response.status)
-        }
-        setUnreadCount(0)
-        return
-      }
-      const data = await response.json()
-      const total = Object.values(data.unreadByOrder || {}).reduce((sum: number, count: any) => sum + count, 0)
-      setUnreadCount(total)
-    } catch {
-      setUnreadCount(0)
-    }
-  }, [])
+  // Notification badge now handles notification display
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: any) => {
       if (user) {
         setUser(user)
         setUserRole(user.user_metadata?.role || 'client')
-        fetchUnreadCount()
       }
     })
 
@@ -83,35 +65,18 @@ export default function Navbar() {
       if (session?.user) {
         setUser(session.user)
         setUserRole(session.user.user_metadata?.role || 'client')
-        fetchUnreadCount()
       } else {
         setUser(null)
         setUserRole(null)
       }
     })
 
-    // listen for explicit read events dispatched by chat components
-    const handleMessagesRead = () => fetchUnreadCount()
-    window.addEventListener('messagesRead', handleMessagesRead)
-
     return () => {
       subscription?.unsubscribe()
-      window.removeEventListener('messagesRead', handleMessagesRead)
     }
-  }, [supabase, fetchUnreadCount])
+  }, [supabase])
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('navbar-messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_messages' }, () => {
-        fetchUnreadCount()
-      })
-      .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, fetchUnreadCount])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -120,15 +85,23 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
+    <nav className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 shadow-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
             <Link 
               href={user && userRole === 'admin' ? '/admin' : user ? '/dashboard' : '/'} 
-              className="text-2xl font-bold text-purple-600"
+              className="flex items-center gap-3 hover:opacity-90 transition"
             >
-              Grace Writers
+              {/* Logo - elegant pen design */}
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 flex items-center justify-center font-bold text-white text-xl shadow-lg">
+                ✍
+              </div>
+              {/* Brand Text */}
+              <div className="flex flex-col ml-1">
+                <span className="text-lg font-bold text-white leading-tight">Grace Writers</span>
+                <span className="text-xs text-white font-semibold tracking-wider">WORDS THAT WORK</span>
+              </div>
             </Link>
           </div>
 
@@ -137,7 +110,7 @@ export default function Navbar() {
             <div className="hidden lg:flex flex-1 max-w-xs mx-4 relative">
               <div className="w-full">
                 <div className="relative flex items-center">
-                  <FaSearch className="absolute left-3 text-gray-400" size={16} />
+                  <FaSearch className="absolute left-3 text-slate-400" size={16} />
                   <input
                     type="text"
                     placeholder="Search orders..."
@@ -147,11 +120,11 @@ export default function Navbar() {
                       handleSearch(e.target.value)
                     }}
                     onFocus={() => setSearchOpen(true)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm bg-white text-slate-900 placeholder-slate-500"
                   />
                 </div>
                 {searchOpen && searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-950 border border-slate-800 rounded-lg shadow-xl z-50">
                     {searchResults.map((result: any) => (
                       <Link
                         key={result.id}
@@ -160,10 +133,10 @@ export default function Navbar() {
                           setSearchOpen(false)
                           setSearchQuery('')
                         }}
-                        className="block px-4 py-2 hover:bg-gray-100 transition text-sm text-gray-700 border-b border-gray-100 last:border-b-0"
+                        className="block px-4 py-2 hover:bg-slate-900 transition text-sm text-white border-b border-slate-800 last:border-b-0"
                       >
-                        <p className="font-medium">{result.title}</p>
-                        <p className="text-xs text-gray-500">{result.status.toUpperCase()}</p>
+                        <p className="font-medium text-white">{result.title}</p>
+                        <p className="text-xs text-slate-400">{result.status.toUpperCase()}</p>
                       </Link>
                     ))}
                   </div>
@@ -175,22 +148,22 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-6">
             {!user && (
               <>
-                <Link href="/" className="text-gray-700 hover:text-purple-600 transition font-medium text-sm">
+                <Link href="/" className="text-white hover:text-yellow-300 transition font-medium text-sm">
                   Home
                 </Link>
-                <Link href="/services" className="text-gray-700 hover:text-purple-600 transition font-medium text-sm">
+                <Link href="/services" className="text-white hover:text-yellow-300 transition font-medium text-sm">
                   Services
                 </Link>
-                <Link href="/portfolio" className="text-gray-700 hover:text-purple-600 transition font-medium text-sm">
+                <Link href="/portfolio" className="text-white hover:text-yellow-300 transition font-medium text-sm">
                   Portfolio
                 </Link>
-                <Link href="/about" className="text-gray-700 hover:text-purple-600 transition font-medium text-sm">
+                <Link href="/about" className="text-white hover:text-yellow-300 transition font-medium text-sm">
                   About
                 </Link>
                 
                 {/* More Menu for Additional Items */}
                 <div className="relative group">
-                  <button className="text-gray-700 hover:text-purple-600 transition font-medium text-sm flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded">
+                  <button className="text-white hover:text-yellow-300 transition font-medium text-sm flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded">
                     More ▼
                   </button>
                   <div className="absolute left-0 mt-1 w-44 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
@@ -212,22 +185,13 @@ export default function Navbar() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-300">
-                  <button
-                    onClick={() => router.push(userRole === 'admin' ? '/admin/messages' : '/dashboard/messages')}
-                    title="View notifications"
-                    className="relative text-gray-700 hover:text-purple-600 transition text-xl"
-                  >
-                    <FaBell />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
+                <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-600">
+                  {userRole !== 'admin' && (
+                    <NotificationBadge userId={user?.id} clientId={user?.user_metadata?.client_id} />
+                  )}
 
                   <div className="relative group">
-                    <button className="flex items-center gap-2 text-gray-700 hover:text-purple-600 transition font-semibold">
+                    <button className="flex items-center gap-2 text-white hover:text-white transition font-semibold">
                       <FaUser />
                       {user?.email?.split('@')[0]}
                     </button>
@@ -283,7 +247,7 @@ export default function Navbar() {
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 hover:text-purple-600"
+              className="text-gray-100 hover:text-white"
             >
               {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
             </button>

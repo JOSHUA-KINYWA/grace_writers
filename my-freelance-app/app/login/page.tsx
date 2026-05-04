@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,8 +12,38 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [checking, setChecking] = useState(true)
   const router = useRouter()
   const supabase = createClient()
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // User is already logged in - check role and redirect
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .single()
+
+          const userRole = user.user_metadata?.role || 'client'
+          const dest = userRole === 'admin' ? '/admin' : '/dashboard'
+          router.replace(dest)
+          return
+        }
+      } catch (err) {
+        console.error('Auth check error:', err)
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    checkAuth()
+  }, [supabase, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +88,15 @@ export default function LoginPage() {
   }
 
   return (
+    <>
+      {checking ? (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
+            <p className="text-gray-300 mt-4">Loading...</p>
+          </div>
+        </div>
+      ) : (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-screen">
         {/* Left Side - Hero Section with Image */}
@@ -114,7 +153,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="font-semibold">24/7 Support</p>
-                  <p className="text-sm text-white/80">We're here to help anytime</p>
+                  <p className="text-sm text-white/80">We&apos;re here to help anytime</p>
                 </div>
               </div>
             </div>
@@ -238,7 +277,7 @@ export default function LoginPage() {
             <div className="mt-6 space-y-3">
               <div className="text-center">
                 <p className="text-sm text-gray-700">
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <Link href="/signup" className="text-purple-600 hover:text-purple-700 font-semibold">
                     Create one
                   </Link>
@@ -263,5 +302,7 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+      )}
+    </>
   )
 }

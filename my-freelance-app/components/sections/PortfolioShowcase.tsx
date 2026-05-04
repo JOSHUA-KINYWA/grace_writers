@@ -61,7 +61,7 @@ export default function PortfolioShowcase() {
                 <p className="text-gray-600 text-sm mt-1">DELIVERY: {item.delivery}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <p className="text-gray-700 italic">"{item.preview}"</p>
+                <p className="text-gray-700 italic">&ldquo;{item.preview}&rdquo;</p>
               </div>
               <Link
                 href="/portfolio"

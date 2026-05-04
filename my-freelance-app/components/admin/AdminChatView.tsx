@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FaComments, FaUser, FaCheckCircle, FaClock } from 'react-icons/fa'
 import ChatInput from './ChatInput'
@@ -30,6 +30,77 @@ export default function AdminChatView({ initialChatRooms }: AdminChatViewProps) 
   const [messages, setMessages] = useState<any[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const supabase = createClient()
+
+  const loadChatRooms = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_rooms')
+        .select(`
+          *,
+          clients:client_id (id, name, email, phone)
+        `)
+        .order('last_message_at', { ascending: false })
+
+      if (!error && data) {
+        const roomsWithCounts = await Promise.all(
+          data.map(async (room: any) => {
+            const { count } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('chat_room_id', room.id)
+              .eq('replied', false)
+
+            return { ...room, unread_count: count || 0 }
+          })
+        )
+        setChatRooms(roomsWithCounts)
+      }
+    } catch (error) {
+      console.error('Error loading chat rooms:', error)
+    }
+  }, [supabase])
+
+  const loadMessages = useCallback(async (roomId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_room_id', roomId)
+        .order('inserted_at', { ascending: true })
+
+      if (!error && data) {
+        const userIds = [...new Set(data.map((m: any) => m.user_id))]
+        const userMap: Record<string, string> = {}
+
+        if (userIds.length > 0) {
+          const { data: clientsData } = await supabase
+            .from('clients')
+            .select('id, email, name')
+            .in('id', userIds)
+
+          if (clientsData) {
+            clientsData.forEach((client: any) => {
+              userMap[client.id] = client.name || client.email?.split('@')[0] || 'User'
+            })
+          }
+        }
+
+        const formattedMessages = data.map((msg: any) => ({
+          id: `${msg.id}-${msg.inserted_at}`,
+          content: msg.message || '',
+          user: {
+            name: userMap[msg.user_id] || 'User',
+            id: msg.user_id,
+          },
+          createdAt: msg.inserted_at,
+          replied: msg.replied || false,
+        }))
+        setMessages(formattedMessages)
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error)
+    }
+  }, [supabase])
 
   useEffect(() => {
     // Get current admin user ID
@@ -64,80 +135,7 @@ export default function AdminChatView({ initialChatRooms }: AdminChatViewProps) 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [selectedRoom])
-
-  async function loadChatRooms() {
-    try {
-      const { data, error } = await supabase
-        .from('chat_rooms')
-        .select(`
-          *,
-          clients:client_id (id, name, email, phone)
-        `)
-        .order('last_message_at', { ascending: false })
-
-      if (!error && data) {
-        // Get unread counts
-        const roomsWithCounts = await Promise.all(
-          data.map(async (room: any) => {
-            const { count } = await supabase
-              .from('messages')
-              .select('*', { count: 'exact', head: true })
-              .eq('chat_room_id', room.id)
-              .eq('replied', false)
-            
-            return { ...room, unread_count: count || 0 }
-          })
-        )
-        setChatRooms(roomsWithCounts)
-      }
-    } catch (error) {
-      console.error('Error loading chat rooms:', error)
-    }
-  }
-
-  async function loadMessages(roomId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_room_id', roomId)
-        .order('inserted_at', { ascending: true })
-
-      if (!error && data) {
-        // Get user info from clients table (not users table)
-        const userIds = [...new Set(data.map((m: any) => m.user_id))]
-        const userMap: Record<string, string> = {}
-        
-        if (userIds.length > 0) {
-          const { data: clientsData } = await supabase
-            .from('clients')
-            .select('id, email, name')
-            .in('id', userIds)
-          
-          if (clientsData) {
-            clientsData.forEach((client: any) => {
-              userMap[client.id] = client.name || client.email?.split('@')[0] || 'User'
-            })
-          }
-        }
-
-        const formattedMessages = data.map((msg: any) => ({
-          id: `${msg.id}-${msg.inserted_at}`,
-          content: msg.message || '',
-          user: {
-            name: userMap[msg.user_id] || 'User',
-            id: msg.user_id
-          },
-          createdAt: msg.inserted_at,
-          replied: msg.replied || false
-        }))
-        setMessages(formattedMessages)
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error)
-    }
-  }
+  }, [selectedRoom, loadChatRooms, loadMessages, supabase])
 
   function handleSelectRoom(room: ChatRoom) {
     setSelectedRoom(room)

@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FaArrowLeft, FaDownload, FaFile, FaCheckCircle, FaComments, FaUpload } from 'react-icons/fa'
+import { FaArrowLeft, FaClipboardList, FaCircle, FaFile, FaCheckCircle, FaComments, FaUpload, FaChevronDown } from 'react-icons/fa'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import OrderChat from '@/components/OrderChat'
+import OrderChatEnhanced from '@/components/OrderChatEnhanced'
 import OrderRating from '@/components/OrderRating'
 import ClientOrderLayout from '@/components/client/ClientOrderLayout'
-import { formatDate, formatTime, formatDateTime } from '@/lib/utils/formatDate'
+import { formatDate, formatDateTime } from '@/lib/utils/formatDate'
+import { formatOrderId } from '@/lib/utils/formatOrderId'
 
 interface ClientOrderDetailProps {
   order: any
@@ -20,6 +21,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   const [loading, setLoading] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [revisions, setRevisions] = useState<any[]>([])
+  const [expandedMilestone, setExpandedMilestone] = useState<number | null>(null)
   const searchParams = useSearchParams()
   const selectedMessageId = searchParams?.get('messageId') ?? undefined
   const [revisionReason, setRevisionReason] = useState('')
@@ -43,6 +45,115 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     } catch {
       return 'Unknown'
     }
+  }
+
+  function getDisplayFileName(filePathOrUrl: string, fallback: string) {
+    try {
+      let raw = filePathOrUrl
+      if (raw.includes('?')) raw = raw.split('?')[0]
+      const last = raw.split('/').pop() || ''
+      // Our uploads follow: <timestamp>_<rand>_<originalName>
+      const parts = last.split('_')
+      if (parts.length >= 3) return decodeURIComponent(parts.slice(2).join('_'))
+      return decodeURIComponent(last) || fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  const getProgressPercent = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'quote_sent':
+        return 20
+      case 'in_progress':
+        return 45
+      case 'delivered':
+        return 70
+      case 'revision':
+        return 60
+      case 'completed':
+        return 100
+      default:
+        return 0
+    }
+  }
+
+  const getStatusSummary = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Your request is waiting for confirmation from our team.'
+      case 'quote_sent':
+        return 'A quote has been sent. Please review and confirm to start work.'
+      case 'in_progress':
+        return 'The writing team is working on your order right now.'
+      case 'delivered':
+        return 'Your deliverables are ready. Review them and mark the order complete.'
+      case 'revision':
+        return 'A revision request is active. We are updating your deliverables.'
+      case 'completed':
+        return 'This order is complete. You can leave feedback and close the project.'
+      default:
+        return 'Order status is being updated. Check back for the latest progress.'
+    }
+  }
+
+  const buildMilestones = () => {
+    const isStarted = ['in_progress', 'delivered', 'revision', 'completed'].includes(order.status)
+    const isDelivered = ['delivered', 'revision', 'completed'].includes(order.status)
+    const isRevisionActive = revisions.length > 0
+    const isComplete = order.status === 'completed'
+
+    const milestones: Array<{ title: string; date?: string; description: string; state: 'completed' | 'current' | 'pending' }> = [
+      {
+        title: 'Order submitted',
+        date: order.created_at,
+        description: 'We received your request and began processing it.',
+        state: 'completed'
+      },
+      {
+        title: 'Quote issued',
+        date: order.status === 'pending' ? undefined : order.updated_at || order.created_at,
+        description: order.status === 'pending'
+          ? 'We are preparing your quote.'
+          : 'Your quote is ready or has been accepted.',
+        state: ['pending', 'quote_sent'].includes(order.status) ? 'current' : 'completed'
+      },
+      {
+        title: 'Work started',
+        date: isStarted ? order.updated_at || order.created_at : undefined,
+        description: isStarted
+          ? 'The writing team has started working on your project.'
+          : 'Work will begin once the quote is accepted.',
+        state: isStarted ? 'completed' : 'pending'
+      },
+      {
+        title: 'Deliverables uploaded',
+        date: isDelivered ? order.updated_at || order.created_at : undefined,
+        description: isDelivered
+          ? 'Files have been uploaded and are ready for review.'
+          : 'You will see the final files here when they are delivered.',
+        state: isDelivered ? 'completed' : 'pending'
+      },
+      {
+        title: 'Revision requested',
+        date: isRevisionActive ? revisions[0].created_at : undefined,
+        description: isRevisionActive
+          ? revisions[0].requested_reason || 'A revision request has been submitted.'
+          : 'Request a change if you need adjustments to the deliverables.',
+        state: isRevisionActive ? 'completed' : 'pending'
+      },
+      {
+        title: 'Order completed',
+        date: isComplete ? order.completed_at : undefined,
+        description: isComplete
+          ? 'Your order is complete and ready for review feedback.'
+          : 'This milestone will be reached after final approval.',
+        state: isComplete ? 'completed' : 'pending'
+      }
+    ]
+
+    return milestones
   }
 
   useEffect(() => {
@@ -249,6 +360,10 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   // Allow revision requests for any order with deliverables (completed, delivered, revision, etc)
   const canRequestRevision = order.deliverables && order.deliverables.length > 0 && order.status !== 'cancelled'
 
+  const milestones = buildMilestones()
+  const completedMilestones = milestones.filter((item) => item.state === 'completed').length
+  const milestoneProgress = Math.round((completedMilestones / milestones.length) * 100)
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -258,22 +373,160 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
 
         <ClientOrderLayout revisionCount={revisions.length} orderStatus={order.status}>
           <div className="space-y-6">
-            {/* Order Header */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{order.title}</h1>
-                  <span className={`inline-block px-3 py-1 text-sm rounded-full font-bold border-2 ${getStatusColor(order.status)}`}>
-                    {order.status.replace('_', ' ').toUpperCase()}
-                  </span>
+            {/* Order Overview */}
+            <div className="grid gap-6 xl:grid-cols-[1.6fr_0.9fr]">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{order.title}</h1>
+                    <span className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-full font-bold border-2 ${getStatusColor(order.status)}`}>
+                      <FaClipboardList />
+                      {order.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm sm:text-right">
+                    <div>
+                      <p className="text-gray-600">Service</p>
+                      <p className="font-semibold text-gray-900">{order.services?.title || 'Custom'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Order budget</p>
+                      <p className="font-semibold text-gray-900">{order.quote_amount ? `$${order.quote_amount.toLocaleString()}` : 'TBD'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Deadline</p>
+                      <p className="font-semibold text-gray-900">{order.deadline ? formatDate(order.deadline) : 'No deadline'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Revisions</p>
+                      <p className="font-semibold text-gray-900">{revisions.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-sm uppercase tracking-wide text-slate-500">Project progress</p>
+                    <p className="text-sm font-semibold text-slate-900">{getProgressPercent(order.status)}%</p>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-blue-500" style={{ width: `${getProgressPercent(order.status)}%` }} />
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">{getStatusSummary(order.status)}</p>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3 text-sm">
+                  <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
+                    <p className="text-slate-500">Order number</p>
+                    <p className="mt-1 font-semibold text-slate-900">{formatOrderId(order.id)}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
+                    <p className="text-slate-500">Current step</p>
+                    <p className="mt-1 font-semibold text-slate-900">{order.status.replace(/_/g, ' ').replace(/\b\w/g, (char: string) => char.toUpperCase())}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
+                    <p className="text-slate-500">Last update</p>
+                    <p className="mt-1 font-semibold text-slate-900">{formatDateTime(order.updated_at || order.created_at)}</p>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                <div><span className="text-gray-600">Size</span> <span className="font-semibold block">{order.word_count ? `${order.word_count.toLocaleString()} words` : 'N/A'}</span></div>
-                <div><span className="text-gray-600">Sources</span> <span className="font-semibold block">See requirements</span></div>
-                <div><span className="text-gray-600">Service</span> <span className="font-semibold block">{order.services?.title || 'Custom'}</span></div>
-                <div><span className="text-gray-600">Language</span> <span className="font-semibold block">English (US)</span></div>
-              </div>
+
+              <aside className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Project snapshot</h2>
+                  <div className="space-y-3 text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Writer</span>
+                      <span className="font-semibold text-slate-900">Grace Writers Team</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Order type</span>
+                      <span className="font-semibold text-slate-900">{order.services?.title || 'Custom Delivery'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Word count</span>
+                      <span className="font-semibold text-slate-900">{order.word_count ? order.word_count.toLocaleString() : 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Paid amount</span>
+                      <span className="font-semibold text-slate-900">{order.quote_amount ? `$${order.quote_amount.toLocaleString()}` : 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Milestone feed</h2>
+                  <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-5 rounded-t-lg border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
+                    <div className="mb-3">
+                      <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-blue-500" style={{ width: `${milestoneProgress}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{completedMilestones} of {milestones.length} complete</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-[0.7rem] text-slate-500 sm:gap-4 sm:grid-cols-6">
+                      {milestones.map((milestone, idx) => (
+                        <button
+                          key={`${milestone.title}-${idx}`}
+                          onClick={() => setExpandedMilestone(expandedMilestone === idx ? null : idx)}
+                          className="flex items-center justify-center transition hover:opacity-75"
+                          title={milestone.title}
+                        >
+                          <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 transition ${milestone.state === 'completed' ? 'border-green-500 bg-green-500 text-white' : milestone.state === 'current' ? 'border-purple-500 bg-white text-purple-600 ring-2 ring-purple-300' : 'border-slate-300 bg-white text-slate-400'}`}>
+                            {milestone.state === 'completed' ? <FaCheckCircle size={12} /> : <FaCircle size={8} />}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <ol className="relative border-l border-slate-200">
+                    {milestones.map((milestone, idx) => {
+                      const isExpanded = expandedMilestone === idx
+                      return (
+                        <li key={`${milestone.title}-${idx}`} className="mb-6 ml-6 last:mb-0">
+                          <span className={`absolute -left-3.5 flex h-7 w-7 items-center justify-center rounded-full border-2 transition ${milestone.state === 'completed' ? 'border-green-500 bg-green-500 text-white' : milestone.state === 'current' ? 'border-purple-500 bg-white text-purple-600' : 'border-slate-300 bg-white text-slate-400'}`}>
+                            {milestone.state === 'completed' ? <FaCheckCircle size={12} /> : <FaCircle size={8} />}
+                          </span>
+                          <button
+                            onClick={() => setExpandedMilestone(isExpanded ? null : idx)}
+                            className={`w-full rounded-xl border p-4 transition ${isExpanded ? 'border-purple-300 bg-purple-50 shadow-md' : `border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100 ${milestone.state === 'current' ? 'ring-2 ring-purple-200' : ''}`}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="text-left">
+                                <p className="font-semibold text-slate-900">{milestone.title}</p>
+                                <p className={`mt-1 text-sm transition ${isExpanded ? 'text-slate-700' : 'text-slate-600 line-clamp-1'}`}>{milestone.description}</p>
+                              </div>
+                              <FaChevronDown className={`mt-1 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-3 ml-4 rounded-lg border border-purple-200 bg-purple-50 p-4">
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Status</p>
+                                  <p className="mt-1 text-sm text-purple-900 capitalize">
+                                    {milestone.state === 'completed' ? '✓ Complete' : milestone.state === 'current' ? '• In Progress' : '○ Pending'}
+                                  </p>
+                                </div>
+                                {milestone.date && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Date</p>
+                                    <p className="mt-1 text-sm text-purple-900">{formatDateTime(milestone.date)}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-700">Details</p>
+                                  <p className="mt-1 text-sm text-purple-900 leading-relaxed">{milestone.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </div>
+              </aside>
             </div>
 
             {/* Order Details */}
@@ -299,7 +552,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
             {/* ACTION BUTTONS - PROMINENT SECTION */}
             {(order.status === 'delivered' || order.status === 'completed' || order.status === 'revision') && (
               <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-lg border-2 border-purple-300 p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">✨ What's Next?</h2>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">✨ What&apos;s Next?</h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   {canMarkComplete && (
                     <button
@@ -335,11 +588,15 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Attached Files</h3>
                     <div className="space-y-2">
-                      {clientFileUrls.map((url: string, idx: number) => (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm">
-                          <FaFile size={14} /> archive_{idx + 1}.zip
-                        </a>
-                      ))}
+                      {clientFileUrls.map((url: string, idx: number) => {
+                        const original = order.files_uploaded?.[idx] || url
+                        const name = getDisplayFileName(original, `Attachment ${idx + 1}`)
+                        return (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            <FaFile size={14} /> {name}
+                          </a>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -349,11 +606,15 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Uploaded Files</h3>
                     <div className="space-y-2">
-                      {deliverableUrls.map((url: string, idx: number) => (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm">
-                          <FaFile size={14} /> AI_Detector_Quiz.pdf
-                        </a>
-                      ))}
+                      {deliverableUrls.map((url: string, idx: number) => {
+                        const original = order.deliverables?.[idx] || url
+                        const name = getDisplayFileName(original, `Deliverable ${idx + 1}`)
+                        return (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            <FaFile size={14} /> {name}
+                          </a>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -481,7 +742,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
               </div>
               {showChat && (
                 <div className="p-6">
-                  <OrderChat orderId={order.id} selectedMessageId={selectedMessageId} />
+                  <OrderChatEnhanced orderId={order.id} selectedMessageId={selectedMessageId} />
                 </div>
               )}
             </div>

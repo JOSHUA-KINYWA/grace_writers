@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "smoke:referrals": "node scripts/smoke-referrals-order-update.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

@@ -53,6 +53,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
 
+      // Send notification to client about revision upload
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/revision-uploaded-notification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ revisionId }),
+        })
+      } catch (notifyErr) {
+        console.error('Failed to send revision notification:', notifyErr)
+      }
+
       return NextResponse.json({ success: true, revisionFile, fileName, filePath })
     }
 
@@ -124,6 +135,17 @@ export async function POST(req: NextRequest) {
         { error: insertError.message },
         { status: 500 }
       )
+    }
+
+    // Send notification to client about revision upload
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/revision-uploaded-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revisionId }),
+      })
+    } catch (notifyErr) {
+      console.error('Failed to send revision notification:', notifyErr)
     }
 
     return NextResponse.json({

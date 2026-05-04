@@ -17,10 +17,10 @@ export default async function AboutPage() {
             ) : (
               <>
                 <p className="text-lg">
-                  Welcome to Grace Writers! I'm a professional writer specializing in all types of content creation.
+                  Welcome to Grace Writers! I&apos;m a professional writer specializing in all types of content creation.
                 </p>
                 <p>
-                  With years of experience in academic, business, technical, and creative writing, I've helped hundreds of clients achieve their goals through high-quality, original content.
+                  With years of experience in academic, business, technical, and creative writing, I&apos;ve helped hundreds of clients achieve their goals through high-quality, original content.
                 </p>
                 <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">Why Choose Me?</h2>
                 <ul className="list-disc list-inside space-y-2">
@@ -28,7 +28,7 @@ export default async function AboutPage() {
                   <li>Expert in 50+ industries and academic subjects</li>
                   <li>Fast turnaround - 24-48 hour delivery available</li>
                   <li>100% original content with plagiarism reports</li>
-                  <li>Unlimited revisions until you're satisfied</li>
+                  <li>Unlimited revisions until you&apos;re satisfied</li>
                   <li>Confidential and professional service</li>
                 </ul>
                 <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">My Specializations</h2>

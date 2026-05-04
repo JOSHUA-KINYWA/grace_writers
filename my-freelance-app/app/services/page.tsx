@@ -13,7 +13,7 @@ export default async function ServicesPage() {
             Our Writing Services
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Professional writing services for every need. From academic papers to business content, we've got you covered.
+            Professional writing services for every need. From academic papers to business content, we&apos;ve got you covered.
           </p>
         </div>
 

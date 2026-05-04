@@ -201,6 +201,25 @@ export default function ComprehensiveAdminDashboard() {
                 View Analytics <FaArrowRight size={14} />
               </Link>
             </div>
+
+            {/* Referrals Card */}
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-indigo-50 rounded-lg">
+                  <FaDollarSign className="text-2xl text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Referrals</h3>
+                  <p className="text-sm text-gray-600">Manage referral confirmations and reward settings</p>
+                </div>
+              </div>
+              <Link
+                href="/admin/referrals"
+                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold mt-4"
+              >
+                Open Referral Panel <FaArrowRight size={14} />
+              </Link>
+            </div>
           </div>
         </>
       )}

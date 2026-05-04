@@ -71,7 +71,7 @@ export default async function AdminTestimonialsPage() {
                         <span className="text-gray-600">- {testimonial.company}</span>
                       )}
                     </div>
-                    <p className="text-gray-700 italic">"{testimonial.comment}"</p>
+                    <p className="text-gray-700 italic">&ldquo;{testimonial.comment}&rdquo;</p>
                   </div>
                   <div className="flex gap-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${

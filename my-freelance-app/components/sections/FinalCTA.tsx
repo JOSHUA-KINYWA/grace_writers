@@ -15,7 +15,7 @@ export default function FinalCTA() {
           className="space-y-8"
         >
           <h2 className="text-3xl md:text-4xl font-bold">
-            READY TO GET STARTED? LET'S TALK!
+            READY TO GET STARTED? LET&apos;S TALK!
           </h2>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8">
@@ -57,7 +57,7 @@ export default function FinalCTA() {
           <div>
             <p className="mb-4">Still not sure? Book a FREE 15-minute consultation</p>
             <WhatsAppButton
-              message="Hi! I'd like to schedule a free 15-minute consultation to discuss my writing needs."
+              message="Hi! I&apos;d like to schedule a free 15-minute consultation to discuss my writing needs."
               className="bg-white text-purple-600 hover:bg-gray-100"
             >
               Schedule Call →

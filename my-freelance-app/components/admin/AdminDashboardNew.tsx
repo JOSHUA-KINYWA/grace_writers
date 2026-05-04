@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { FaBox, FaSpinner, FaBars, FaTimes } from 'react-icons/fa'
 import { formatDate } from '@/lib/utils/formatDate'
+import { formatOrderId } from '@/lib/utils/formatOrderId'
 
 export default function AdminDashboardNew() {
   const [orders, setOrders] = useState<any[]>([])
@@ -153,7 +154,7 @@ export default function AdminDashboardNew() {
                 {orders.length > 0 ? (
                   orders.slice(0, 20).map((order) => (
                     <div key={order.id} className="grid grid-cols-6 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition text-sm">
-                      <div className="font-mono text-gray-600 font-semibold">{order.id.slice(0, 8)}</div>
+                      <div className="font-mono text-gray-600 font-semibold">{formatOrderId(order.id)}</div>
                       <div className="font-medium text-gray-900 truncate">{order.title}</div>
                       <div>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${

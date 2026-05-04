@@ -22,19 +22,39 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Get the first admin user (try auth_user_id first, then fallback to id)
-    const { data: admins, error: adminError } = await service
-      .from('clients')
-      .select('id, auth_user_id')
-      .or('email.ilike.%admin%,user_metadata.role.eq.admin')
+    // Get the first admin user from profiles, falling back to auth user lookup
+    let adminUserId: string | null = null
+
+    const { data: adminProfiles, error: profileError } = await service
+      .from('profiles')
+      .select('id')
+      .eq('account_type', 'admin')
       .limit(1)
 
-    if (adminError) {
-      console.error('Error fetching admin:', adminError)
-      return NextResponse.json({ error: 'Failed to find admin' }, { status: 500 })
+    if (profileError) {
+      console.error('Error fetching admin profile:', profileError)
+    } else if (adminProfiles && adminProfiles.length > 0) {
+      adminUserId = adminProfiles[0].id
     }
 
-    const adminUserId = admins && admins.length > 0 ? (admins[0].auth_user_id || admins[0].id) : null
+    if (!adminUserId) {
+      const { data: adminUsers, error: userError } = await service
+        .from('users')
+        .select('id, user_metadata')
+        .or('user_metadata->>role.eq.admin,email.ilike.%admin%')
+        .limit(1)
+
+      if (userError) {
+        console.error('Error fetching admin user:', userError)
+      } else if (adminUsers && adminUsers.length > 0) {
+        adminUserId = adminUsers[0].id
+      }
+    }
+
+    if (!adminUserId) {
+      console.error('No admin user found for revision notification')
+      return NextResponse.json({ error: 'Failed to find admin' }, { status: 500 })
+    }
 
     if (adminUserId) {
       const { error: notifyError } = await service

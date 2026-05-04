@@ -3,8 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import RealtimeChat from "@/components/RealtimeChat";
+import ConditionalRealtimeChat from "@/components/ConditionalRealtimeChat";
 import { ReactNode } from "react";
 
 const inter = Inter({
@@ -21,7 +20,7 @@ interface RootLayoutProps {
   children: ReactNode;
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
@@ -30,7 +29,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           {children}
         </main>
         <Footer />
-        <RealtimeChat roomName="support-chat" />
+        <ConditionalRealtimeChat />
       </body>
     </html>
   );
