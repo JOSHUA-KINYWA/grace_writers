@@ -44,11 +44,14 @@ export async function proxy(request: NextRequest) {
 
   // Protected routes that require authentication
   const protectedPrefixes = ['/admin', '/dashboard', '/orders', '/account']
-  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p)) && !pathname.startsWith('/admin/login')
+  const isProtected =
+    protectedPrefixes.some((p) => pathname.startsWith(p)) &&
+    !pathname.startsWith('/admin/login')
 
   // If protected route and no session, redirect to login (but not if already on login)
-  if (isProtected && !hasSession && !pathname.startsWith('/login')) {
-    const loginUrl = new URL('/login', request.url)
+  if (isProtected && !hasSession && !pathname.startsWith('/login') && !pathname.startsWith('/admin/login')) {
+    const loginPath = pathname.startsWith('/admin') ? '/admin/login' : '/login'
+    const loginUrl = new URL(loginPath, request.url)
     const dest = `${pathname}${search || ''}`
     loginUrl.searchParams.set('next', dest)
     return NextResponse.redirect(loginUrl)

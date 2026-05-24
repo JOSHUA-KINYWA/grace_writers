@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminLayout from '@/components/admin/AdminLayout'
@@ -6,9 +7,11 @@ export const metadata = {
   title: 'Admin Dashboard',
 }
 
-export default async function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
+export default async function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect('/admin/login')

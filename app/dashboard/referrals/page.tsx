@@ -61,7 +61,8 @@ export default async function ReferralsPage() {
   }
 
   const code = codeRow.data?.code || ""
-  const signupUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/signup?ref=${encodeURIComponent(code)}`
+  const { getAppUrl } = await import('@/lib/app-url')
+  const signupUrl = `${getAppUrl()}/signup?ref=${encodeURIComponent(code)}`
 
   const { data: referrals } = await supabase
     .from("referrals")
