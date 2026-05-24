@@ -1,0 +1,38 @@
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+function getService() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+export async function getAdminAuthUserIds(): Promise<string[]> {
+  const service = getService()
+  const { data } = await service.auth.admin.listUsers({ perPage: 1000 })
+  const ids: string[] = []
+  for (const user of data?.users || []) {
+    if (user.user_metadata?.role === 'admin') {
+      ids.push(user.id)
+    }
+  }
+  return ids
+}
+
+export async function getPrimaryAdminEmail(): Promise<string | null> {
+  const configured =
+    process.env.ADMIN_EMAIL ||
+    process.env.BREVO_SENDER_EMAIL ||
+    process.env.GMAIL_USER ||
+    process.env.SMTP_USER
+  if (configured) return configured
+
+  const service = getService()
+  const { data } = await service.auth.admin.listUsers({ perPage: 1000 })
+  for (const user of data?.users || []) {
+    if (user.user_metadata?.role === 'admin' && user.email) {
+      return user.email
+    }
+  }
+  return null
+}
