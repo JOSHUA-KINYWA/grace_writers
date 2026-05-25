@@ -1,5 +1,4 @@
 import { getAdminEmail, isSmtpConfigured } from '@/lib/email/config'
-import { getAdminAuthUserIds } from '@/lib/email/admin-users'
 import { sendAppEmail, type SendAppEmailInput } from '@/lib/email/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
@@ -59,9 +58,6 @@ export async function sendEmailToAllAdmins(
       }
     })
   )
-
-  // Ensure in-app notifications still reach all admin user ids
-  void getAdminAuthUserIds()
 
   return { sent, skipped: false, errors }
 }

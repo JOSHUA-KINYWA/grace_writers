@@ -71,111 +71,44 @@ function SignupPageContent() {
       return
     }
 
-    const { getSignupConfirmRedirectUrl } = await import('@/lib/app-url')
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        emailRedirectTo: getSignupConfirmRedirectUrl(),
-        data: {
-          name: formData.name,
-          phone: formData.phone
-        }
-      }
+    const signupRes = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone,
+      }),
     })
+    const signupData = await signupRes.json()
 
-    if (signUpError) {
-      setError(signUpError.message)
+    if (!signupRes.ok) {
+      setError(signupData.error || 'Signup failed')
       setLoading(false)
       return
     }
 
-    if (data.user) {
-      // Create client record (link to auth user)
-      const { data: clientRow, error: clientError } = await supabase
-        .from('clients')
-        .insert({
-          auth_user_id: data.user.id,
-          email: formData.email,
-          name: formData.name,
-          phone: formData.phone
-        })
-        .select('id')
-        .single()
-
-      if (!clientError && clientRow?.id) {
-        // Store client_id into auth metadata for easier filtering elsewhere in the app
-        try {
-          await supabase.auth.updateUser({
-            data: {
-              client_id: clientRow.id,
-              role: 'client',
-            },
-          })
-        } catch (error_) {
-          console.error('Failed to update user metadata:', error_)
-        }
-      }
-
-      // If user signed up with a referral code, claim it (best-effort)
-      if (referralCode) {
-        try {
-          await fetch('/api/referrals/claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: referralCode }),
-          })
-        } catch (error_) {
-          console.error('Failed to claim referral:', error_)
-        }
-      }
-
-      // Ensure the new client has their own referral code (best-effort)
-      try {
-        await fetch('/api/referrals/ensure-code', { method: 'POST' })
-      } catch (error_) {
-        console.error('Failed to ensure referral code:', error_)
-      }
-
-      // Send admin notification about new account
-      try {
-        await fetch('/api/new-account-notification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientName: formData.name,
-            clientEmail: formData.email,
-            clientPhone: formData.phone,
-          }),
-        })
-      } catch (error_) {
-        console.error('Failed to send account notification:', error_)
-      }
-
-      if (data.session) {
-        setLoading(false)
-        router.push('/dashboard')
-        return
-      }
-
-      await supabase.auth.signOut().catch(() => {})
-
-      try {
-        await fetch('/api/auth/resend-confirmation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email }),
-        })
-      } catch {
-        // Supabase may still send its own confirmation email
-      }
-
-      setRegisteredEmail(formData.email)
-      setVerifyPending(true)
-      setVerifyMessage(
-        'We sent a confirmation link to your email. Please verify your account before signing in.'
-      )
+    try {
+      await fetch('/api/new-account-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: formData.name,
+          clientEmail: formData.email,
+          clientPhone: formData.phone,
+        }),
+      })
+    } catch (error_) {
+      console.error('Failed to send account notification:', error_)
     }
+
+    setRegisteredEmail(formData.email)
+    setVerifyPending(true)
+    setVerifyMessage(
+      signupData.message ||
+        'We sent a confirmation link to your email. Please verify your account before signing in.'
+    )
     setLoading(false)
   }
 

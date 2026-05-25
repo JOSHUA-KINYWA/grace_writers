@@ -12,6 +12,7 @@ import { LIVE_CHAT_STARTERS } from '@/lib/live-chat/starters'
 import { getAppUrl } from '@/lib/email/config'
 import { emailTemplates } from '@/lib/email-templates'
 import { sendAppEmail } from '@/lib/email/send'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import {
   insertAppNotification,
   notifyAllAdmins,
@@ -306,7 +307,14 @@ export async function POST(req: Request) {
         type: 'live_chat_message',
         title: 'New live chat message',
         message: `${clientLabel}: ${preview}`,
-      }).catch((err) => console.error('Live chat admin notify failed:', err))
+      }).catch((err) => console.error('Live chat admin in-app notify failed:', err))
+
+      void sendEmailToAllAdmins({
+        kind: 'admin_live_chat_message',
+        subject: `Live chat — ${clientLabel}`,
+        html: emailTemplates.liveChatMessageAdmin(clientLabel, preview, getAppUrl()),
+        text: `${clientLabel}: ${preview}\nOpen: ${getAppUrl()}/admin/chat`,
+      }).catch((err) => console.error('Live chat admin email failed:', err))
     }
 
     if (isAdmin && room.client_id) {

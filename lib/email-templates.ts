@@ -455,6 +455,23 @@ export const emailTemplates = {
     ${emailTemplates.getFooter()}`;
   },
 
+  liveChatMessageAdmin: (
+    clientLabel: string,
+    preview: string,
+    appUrl: string
+  ) => {
+    return `${emailTemplates.getHeader()}
+      <div class="section">
+        <h2>💬 New live chat message</h2>
+        <p><strong>${clientLabel}</strong> sent a message in live support.</p>
+      </div>
+      <div class="details"><p style="margin:0;">${preview}</p></div>
+      <p style="text-align: center; margin-top: 30px;">
+        <a href="${appUrl}/admin/chat" class="button">Open live chat</a>
+      </p>
+    ${emailTemplates.getFooter()}`;
+  },
+
   liveChatMessageClient: (clientName: string, preview: string, appUrl: string) => {
     return `${emailTemplates.getHeader()}
       <div class="section">

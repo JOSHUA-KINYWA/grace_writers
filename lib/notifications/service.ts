@@ -56,7 +56,7 @@ export async function notifyAllAdmins(input: {
     )
     return { notified: 0 }
   }
-  await Promise.all(
+  const results = await Promise.allSettled(
     adminIds.map((userId) =>
       insertAppNotification({
         userId,
@@ -64,10 +64,16 @@ export async function notifyAllAdmins(input: {
         type: input.type,
         title: input.title,
         message: input.message,
-      }).catch(() => {})
+      })
     )
   )
-  return { notified: adminIds.length }
+  const failed = results.filter((r) => r.status === 'rejected')
+  if (failed.length) {
+    console.error(
+      `[notification] ${failed.length}/${adminIds.length} admin inserts failed for ${input.type}`
+    )
+  }
+  return { notified: adminIds.length - failed.length }
 }
 
 export async function resolveClientNotifyTarget(

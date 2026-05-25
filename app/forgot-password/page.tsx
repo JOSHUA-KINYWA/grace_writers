@@ -69,9 +69,12 @@ export default function ForgotPasswordPage() {
       const data = await res.json()
 
       if (!res.ok && data.fallback) {
-        const { getPasswordResetRedirectUrl } = await import('@/lib/app-url')
+        const urlRes = await fetch('/api/app-url')
+        const urlData = urlRes.ok ? await urlRes.json() : {}
+        const redirectTo =
+          urlData.passwordResetRedirect || `${window.location.origin}/auth/callback?next=%2Faccount%2Fchange-password&flow=recovery`
         const { error: supaError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: getPasswordResetRedirectUrl(),
+          redirectTo,
         })
         if (supaError) {
           if (supaError.message.includes('rate limit')) {

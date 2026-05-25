@@ -12,6 +12,7 @@ export type AppEmailKind =
   | 'admin_new_signup'
   | 'admin_new_order'
   | 'admin_contact_inquiry'
+  | 'admin_live_chat_message'
   | 'password_changed'
   | 'admin_test_email'
   | 'auth_password_reset'
@@ -27,6 +28,7 @@ const ENABLED: ReadonlySet<AppEmailKind> = new Set([
   'admin_new_signup',
   'admin_new_order',
   'admin_contact_inquiry',
+  'admin_live_chat_message',
   'password_changed',
   'admin_test_email',
   'auth_password_reset',
