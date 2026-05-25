@@ -92,6 +92,20 @@ export async function GET(req: Request) {
       roomStatus = room ? roomStatusFromRow(room) : 'open'
     }
 
+    // Mark client messages as read for admin when the chat room is loaded
+    if (user.user_metadata?.role === 'admin' && roomId) {
+      const { error: markError } = await service
+        .from('messages')
+        .update({ replied: true, replied_at: new Date().toISOString() })
+        .eq('chat_room_id', roomId)
+        .eq('replied', false)
+        .neq('user_id', user.id)
+
+      if (markError) {
+        console.error('[live-chat] mark messages replied on admin view error:', markError)
+      }
+    }
+
     const { data, error } = await service
       .from('messages')
       .select('*')
