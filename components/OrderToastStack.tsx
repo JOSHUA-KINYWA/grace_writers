@@ -36,11 +36,15 @@ export default function OrderToastStack({ role, userId, clientId }: OrderToastSt
     seenRef.current.add(row.id)
 
     const supabase = supabaseRef.current
-    const { data: order } = await supabase
-      .from('orders')
-      .select('id, title, deadline, services:service_id(title, category)')
-      .eq('id', row.order_id)
-      .maybeSingle()
+    let order = null
+    if (row.order_id) {
+      const { data } = await supabase
+        .from('orders')
+        .select('id, title, deadline, services:service_id(title, category)')
+        .eq('id', row.order_id)
+        .maybeSingle()
+      order = data
+    }
 
     const toast = notificationToToast(row, order, role)
     if (!toast) return
@@ -63,6 +67,22 @@ export default function OrderToastStack({ role, userId, clientId }: OrderToastSt
     let cancelled = false
 
     async function loadRecent() {
+      if (role === 'admin' && userId) {
+        try {
+          const res = await fetch('/api/admin/in-app-alerts', { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json()
+            const rows = (data.recentNotifications || []).slice(0, 3)
+            for (const row of rows.reverse()) {
+              await pushToast(row)
+            }
+          }
+        } catch {
+          /* fallback below */
+        }
+        return
+      }
+
       let query = supabase
         .from('notifications')
         .select('id, order_id, title, message, type, created_at, read')
@@ -87,6 +107,13 @@ export default function OrderToastStack({ role, userId, clientId }: OrderToastSt
     }
 
     loadRecent()
+
+    const adminPoll =
+      role === 'admin' && userId
+        ? setInterval(() => {
+            if (!cancelled) void loadRecent()
+          }, 5000)
+        : null
 
     const channel = supabase
       .channel(`order-toasts-${role}-${userId || clientId}`)
@@ -123,10 +150,38 @@ export default function OrderToastStack({ role, userId, clientId }: OrderToastSt
           await pushToast(synthetic)
         }
       )
-      .subscribe()
+
+    if (role === 'admin') {
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        async (payload) => {
+          const msg = payload.new as {
+            id: string
+            message?: string
+            user_id?: string
+            chat_room_id?: string
+            inserted_at?: string
+          }
+          if (!msg?.id || msg.user_id === userId) return
+          const synthetic = {
+            id: `live-${msg.id}`,
+            order_id: null,
+            title: 'New live chat message',
+            message: String(msg.message || '').slice(0, 120),
+            type: 'live_chat_message',
+            created_at: msg.inserted_at,
+          }
+          await pushToast(synthetic)
+        }
+      )
+    }
+
+    channel.subscribe()
 
     return () => {
       cancelled = true
+      if (adminPoll) clearInterval(adminPoll)
       supabase.removeChannel(channel)
     }
   }, [userId, clientId, role, pushToast])
@@ -191,7 +246,9 @@ export default function OrderToastStack({ role, userId, clientId }: OrderToastSt
               onClick={() => dismissToast(toast)}
               className="text-sm font-semibold text-blue-600 hover:text-blue-800"
             >
-              {toast.badge === 'New message' ? 'Open chat ↗' : 'View order ↗'}
+              {toast.badge === 'New message' || toast.badge === 'Live chat'
+                ? 'Open chat ↗'
+                : 'View order ↗'}
             </Link>
           </div>
         </div>

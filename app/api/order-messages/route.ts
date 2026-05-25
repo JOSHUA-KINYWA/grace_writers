@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { resolveSenderDisplayName } from '@/lib/utils/display-name'
+import { notifyAllAdmins } from '@/lib/notifications/service'
 
 export async function GET(req: Request) {
   try {
@@ -173,6 +174,16 @@ export async function POST(req: Request) {
       .single()
 
     if (error) throw error
+
+    if (!isAdmin) {
+      const preview = String(inserted.content || text || 'New message').slice(0, 120)
+      void notifyAllAdmins({
+        orderId,
+        type: 'new_message',
+        title: `Message from ${senderName}`,
+        message: preview,
+      }).catch((err) => console.error('[order-messages] admin notify failed:', err))
+    }
 
     return NextResponse.json({ message: inserted })
   } catch (err) {

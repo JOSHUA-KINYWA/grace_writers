@@ -12,6 +12,7 @@ interface MessageAlert {
   preview: string
   href: string
   createdAt: string
+  kind?: 'order' | 'live'
 }
 
 interface NewMessageToastAlertsProps {
@@ -62,6 +63,24 @@ export default function NewMessageToastAlerts({ role, userId }: NewMessageToastA
     [messageHref, supabase]
   )
 
+  const pushLiveAlert = useCallback(
+    (msg: { id: string; message?: string; inserted_at?: string }) => {
+      if (!msg?.id || seenRef.current.has(`live-${msg.id}`)) return
+      seenRef.current.add(`live-${msg.id}`)
+      const alert: MessageAlert = {
+        id: `live-${msg.id}`,
+        orderId: '',
+        title: 'Live chat',
+        preview: String(msg.message || 'New message').slice(0, 140),
+        href: role === 'admin' ? '/admin/chat' : '/dashboard',
+        createdAt: msg.inserted_at || new Date().toISOString(),
+        kind: 'live',
+      }
+      setAlerts((prev) => [alert, ...prev.filter((a) => a.id !== alert.id)].slice(0, 5))
+    },
+    [role]
+  )
+
   useEffect(() => {
     if (!userId) return
 
@@ -84,12 +103,30 @@ export default function NewMessageToastAlerts({ role, userId }: NewMessageToastA
           if (forMe) void pushAlert(msg)
         }
       )
-      .subscribe()
+
+    if (role === 'admin') {
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const msg = payload.new as {
+            id: string
+            message?: string
+            user_id?: string
+            inserted_at?: string
+          }
+          if (!msg?.id || msg.user_id === userId) return
+          pushLiveAlert(msg)
+        }
+      )
+    }
+
+    channel.subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [role, userId, supabase, pushAlert])
+  }, [role, userId, supabase, pushAlert, pushLiveAlert])
 
   const dismissAlert = (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id))
@@ -120,7 +157,9 @@ export default function NewMessageToastAlerts({ role, userId }: NewMessageToastA
                   <FaTimes size={12} />
                 </button>
               </div>
-              <p className="text-xs font-semibold text-blue-700 mt-0.5">New message — tap to open</p>
+              <p className="text-xs font-semibold text-blue-700 mt-0.5">
+                {alert.kind === 'live' ? 'Live chat — tap to open' : 'New message — tap to open'}
+              </p>
               <p className="text-sm text-slate-600 mt-1 line-clamp-2">{alert.preview}</p>
               <Link
                 href={alert.href}

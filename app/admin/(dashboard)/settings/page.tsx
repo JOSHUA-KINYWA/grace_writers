@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FaSave, FaToggleOn, FaToggleOff } from 'react-icons/fa'
+import EmailHealthPanel from '@/components/admin/EmailHealthPanel'
 
 type Settings = {
   businessName: string
@@ -129,6 +130,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <EmailHealthPanel />
 
       {/* Security Settings */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">

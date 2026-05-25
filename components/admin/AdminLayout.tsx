@@ -7,8 +7,8 @@ import { FaBars, FaTimes, FaHome, FaUsers, FaShoppingCart, FaCog, FaChartBar, Fa
 import LogoutButton from './LogoutButton'
 import AdminOnlineAlerts from './AdminOnlineAlerts'
 import AdminPresenceHeartbeat from '@/components/AdminPresenceHeartbeat'
-import MessageNavBadge from '@/components/MessageNavBadge'
 import DashboardHeaderUser from '@/components/DashboardHeaderUser'
+import AdminHeaderAlerts from '@/components/admin/AdminHeaderAlerts'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 import { useUnreadLiveChatCount } from '@/hooks/useUnreadLiveChatCount'
 
@@ -63,11 +63,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { icon: FaShoppingCart, label: 'Orders', href: '/admin/orders' },
     { icon: FaEnvelope, label: 'Messages', href: '/admin/messages' },
     { icon: FaComments, label: 'Live Chat', href: '/admin/chat' },
+    { icon: FaStar, label: 'Ratings', href: '/admin/ratings' },
     { icon: FaGift, label: 'Referrals', href: '/admin/referrals' },
     { icon: FaChartBar, label: 'Analytics', href: '/admin/analytics' },
     { icon: FaFileAlt, label: 'Inquiries', href: '/admin/inquiries' },
     { icon: FaBox, label: 'Work Samples', href: '/admin/portfolio' },
-    { icon: FaStar, label: 'Ratings', href: '/admin/ratings' },
     { icon: FaCog, label: 'Settings', href: '/admin/settings' },
   ]
 
@@ -153,11 +153,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <p className="hidden md:block text-xs text-slate-500 mt-1">Manage your business efficiently</p>
           </div>
           <div className="flex items-center gap-2">
-            <MessageNavBadge
-              role="admin"
-              href="/admin/messages"
-              className="text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg"
-            />
+            <AdminHeaderAlerts />
             <DashboardHeaderUser />
           </div>
         </div>

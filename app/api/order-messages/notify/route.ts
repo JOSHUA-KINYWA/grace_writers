@@ -3,7 +3,8 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
 import { getAppUrl, isSmtpConfigured } from '@/lib/email/config'
-import { getAdminAuthUserIds, getPrimaryAdminEmail } from '@/lib/email/admin-users'
+import { getPrimaryAdminEmail } from '@/lib/email/admin-users'
+import { notifyAllAdmins } from '@/lib/notifications/service'
 import { sendAppEmail } from '@/lib/email/send'
 
 export async function POST(req: Request) {
@@ -72,19 +73,12 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      const adminIds = await getAdminAuthUserIds()
-      const primaryAdminId = adminIds[0]
-
-      if (primaryAdminId) {
-        await service.from('notifications').insert({
-          user_id: primaryAdminId,
-          order_id: orderId,
-          type: 'new_message',
-          title: `Message from ${clientRow?.name || 'Client'}`,
-          message: preview,
-          read: false,
-        })
-      }
+      await notifyAllAdmins({
+        orderId,
+        type: 'new_message',
+        title: `Message from ${clientRow?.name || 'Client'}`,
+        message: preview,
+      })
 
       const adminEmail = await getPrimaryAdminEmail()
       if (adminEmail && isSmtpConfigured()) {

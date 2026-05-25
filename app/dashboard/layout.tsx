@@ -14,9 +14,12 @@ import {
   FaCog,
   FaSignOutAlt,
   FaImages,
+  FaWhatsapp,
 } from 'react-icons/fa'
+import { getUrgentWhatsAppHref } from '@/lib/support-contact'
 import MessageNavBadge from '@/components/MessageNavBadge'
 import DashboardHeaderUser from '@/components/DashboardHeaderUser'
+import UrgentWhatsAppNavButton from '@/components/UrgentWhatsAppNavButton'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 
 interface DashboardLayoutProps {
@@ -147,6 +150,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </li>
             ))}
           </ul>
+          {(sidebarOpen || isMobile) && (
+            <div className="px-2 mt-4">
+              <a
+                href={getUrgentWhatsAppHref()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg bg-green-600/90 hover:bg-green-600 text-white font-semibold text-sm transition"
+              >
+                <FaWhatsapp size={18} />
+                Urgent help (WhatsApp)
+              </a>
+              <p className="text-[0.65rem] text-slate-400 px-3 mt-2 leading-snug">
+                Quotes, feedback, or if live chat is slow
+              </p>
+            </div>
+          )}
         </nav>
 
         <div className="p-3 md:p-4 border-t border-slate-700/50 bg-slate-800/50">
@@ -188,6 +207,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <p className="hidden md:block text-xs text-slate-500 mt-1">Manage your orders and projects</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <UrgentWhatsAppNavButton compact={isMobile} />
             <MessageNavBadge
               role="client"
               href="/dashboard/messages"
