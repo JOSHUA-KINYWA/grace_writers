@@ -1,36 +1,46 @@
 import { getAppUrl, getPasswordResetRedirectUrl, getSignupConfirmRedirectUrl } from '@/lib/app-url'
 
+/** Map Supabase verification_type to verifyOtp type */
+function normalizeOtpType(type: string): string {
+  if (type === 'magiclink') return 'email'
+  if (type === 'signup') return 'signup'
+  if (type === 'recovery') return 'recovery'
+  return type
+}
+
 /**
- * Supabase action links often embed redirect_to from Site URL (e.g. localhost).
- * Rewrite redirect_to to the canonical production app URL before emailing.
+ * Link that opens our app directly (no Supabase Site URL / localhost redirect).
+ * Use hashed_token from auth.admin.generateLink().
  */
+export function buildDirectAuthCallbackLink(opts: {
+  tokenHash: string
+  verificationType: string
+  nextPath?: string
+  flow?: string
+}): string {
+  const base = getAppUrl()
+  const next = opts.nextPath?.startsWith('/') ? opts.nextPath : '/dashboard'
+  const type = normalizeOtpType(opts.verificationType)
+  let url = `${base}/auth/callback?token_hash=${encodeURIComponent(opts.tokenHash)}&type=${encodeURIComponent(type)}&next=${encodeURIComponent(next)}`
+  if (opts.flow) url += `&flow=${encodeURIComponent(opts.flow)}`
+  return url
+}
+
+/** Legacy: rewrite redirect_to on Supabase verify URLs (fallback) */
 export function rewriteSupabaseAuthLink(link: string, flow: 'recovery' | 'signup' | 'magiclink' = 'recovery'): string {
   try {
     const url = new URL(link)
     const redirectTo =
-      flow === 'recovery'
-        ? getPasswordResetRedirectUrl()
-        : getSignupConfirmRedirectUrl()
-
+      flow === 'recovery' ? getPasswordResetRedirectUrl() : getSignupConfirmRedirectUrl()
     if (url.searchParams.has('redirect_to')) {
       url.searchParams.set('redirect_to', redirectTo)
     }
-
-    // Some links use redirect_to in hash — handle verify endpoint
     return url.toString()
   } catch {
     return link
   }
 }
 
-/** After Supabase verify, user may land on Site URL root with #access_token — build callback URL. */
-export function buildCallbackFromHash(hash: string, search = ''): string {
-  const base = getAppUrl()
-  const params = new URLSearchParams(search)
-  const flow = params.get('flow')
-  const next = params.get('next') || '/dashboard'
-  let path = `${base}/auth/callback?next=${encodeURIComponent(next)}`
-  if (flow) path += `&flow=${encodeURIComponent(flow)}`
-  if (hash) path += hash.startsWith('#') ? hash : `#${hash}`
-  return path
+export function getProductionAppUrl(): string {
+  return getAppUrl()
 }

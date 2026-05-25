@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
-import { getPasswordResetRedirectUrl } from '@/lib/app-url'
-import { rewriteSupabaseAuthLink } from '@/lib/auth-link'
+import { buildDirectAuthCallbackLink } from '@/lib/auth-link'
+import { getAppUrl } from '@/lib/app-url'
 import { isSmtpConfigured } from '@/lib/email/config'
 import { sendAppEmail } from '@/lib/email/send'
 import { emailTemplates } from '@/lib/email-templates'
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'App email is not configured. Use Supabase Auth SMTP in the dashboard, or set BREVO_API_KEY on the server.',
+            'App email is not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL on Vercel.',
           fallback: true,
         },
         { status: 503 }
@@ -33,16 +33,17 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const redirectTo = getPasswordResetRedirectUrl()
+    const appUrl = getAppUrl()
     const { data, error } = await service.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo },
+      options: {
+        redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/account/change-password')}&flow=recovery`,
+      },
     })
 
     if (error) {
       console.error('[request-password-reset] generateLink:', error.message)
-      // Do not reveal whether the email exists
       return NextResponse.json({
         success: true,
         message:
@@ -50,18 +51,20 @@ export async function POST(req: Request) {
       })
     }
 
-    const rawLink =
-      data?.properties?.action_link ||
-      (data as { action_link?: string })?.action_link
-
-    if (!rawLink) {
+    const tokenHash = data?.properties?.hashed_token
+    if (!tokenHash) {
       return NextResponse.json(
-        { error: 'Could not generate reset link. Check Supabase Auth settings.' },
+        { error: 'Could not generate reset link. Check Supabase service role key.' },
         { status: 500 }
       )
     }
 
-    const resetLink = rewriteSupabaseAuthLink(rawLink, 'recovery')
+    const resetLink = buildDirectAuthCallbackLink({
+      tokenHash,
+      verificationType: data.properties?.verification_type || 'recovery',
+      nextPath: '/account/change-password',
+      flow: 'recovery',
+    })
 
     await sendAppEmail({
       kind: 'auth_password_reset',
@@ -75,6 +78,7 @@ export async function POST(req: Request) {
       success: true,
       message:
         'If an account exists for that email, a reset link has been sent. Check your inbox and spam folder.',
+      appUrl,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to send reset email'

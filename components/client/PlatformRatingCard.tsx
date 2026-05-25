@@ -1,14 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FaStar } from 'react-icons/fa'
 
 export default function PlatformRatingCard() {
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const [loadingExisting, setLoadingExisting] = useState(true)
+  const [existingId, setExistingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      setLoadingExisting(true)
+      try {
+        const res = await fetch('/api/order-ratings?platform_mine=true', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.id) {
+            setExistingId(data.id)
+            setRating(Number(data.rating) || 0)
+            setComment(data.review_comment || '')
+          }
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setLoadingExisting(false)
+      }
+    }
+    load()
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -18,6 +42,7 @@ export default function PlatformRatingCard() {
     }
     setLoading(true)
     setError('')
+    setSuccess(false)
     try {
       const res = await fetch('/api/order-ratings', {
         method: 'POST',
@@ -30,7 +55,9 @@ export default function PlatformRatingCard() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to submit')
-      setDone(true)
+      if (data?.id) setExistingId(data.id)
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to submit')
     } finally {
@@ -38,17 +65,22 @@ export default function PlatformRatingCard() {
     }
   }
 
-  if (done) {
-    return (
-      <p className="text-sm text-green-700 font-medium">
-        Thank you — your platform review has been submitted.
-      </p>
-    )
+  if (loadingExisting) {
+    return <p className="text-sm text-slate-600">Loading your platform review…</p>
   }
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <p className="text-sm text-slate-600">Rate your overall experience with Grace Tutors.</p>
+      {success && (
+        <p className="text-sm text-green-700 font-medium">
+          {existingId ? 'Your platform review has been updated.' : 'Thank you — your platform review has been submitted.'}
+        </p>
+      )}
+      <p className="text-sm text-slate-600">
+        {existingId
+          ? 'You can change your overall rating anytime.'
+          : 'Rate your overall experience with Grace Tutors.'}
+      </p>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((i) => (
           <button
@@ -75,7 +107,7 @@ export default function PlatformRatingCard() {
         disabled={loading}
         className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
       >
-        {loading ? 'Submitting…' : 'Submit platform review'}
+        {loading ? 'Saving…' : existingId ? 'Update platform review' : 'Submit platform review'}
       </button>
     </form>
   )

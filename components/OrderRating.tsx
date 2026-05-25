@@ -54,16 +54,18 @@ export default function OrderRating({ orderId, onRatingSubmitted }: OrderRatingP
         body: JSON.stringify({
           order_id: orderId,
           rating,
-          review_comment: comment
+          review_comment: comment,
+          rating_type: 'order',
         })
       })
 
+      const data = await res.json()
       if (!res.ok) {
-        const data = await res.json()
         throw new Error(data.error || 'Failed to submit rating')
       }
 
       setSuccess(true)
+      if (data?.id) setExistingRating(data)
       onRatingSubmitted?.()
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ratingSubmitted', { detail: { orderId } }))

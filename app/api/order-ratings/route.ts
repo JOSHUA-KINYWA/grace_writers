@@ -187,10 +187,46 @@ export async function GET(req: Request) {
   const adminList = searchParams.get('admin') === 'true'
 
   try {
+    const platformMine = searchParams.get('platform_mine') === 'true'
+
+    if (platformMine) {
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const { data: clientData } = await service
+        .from('clients')
+        .select('id')
+        .or(
+          user.email
+            ? `auth_user_id.eq.${user.id},email.eq.${user.email}`
+            : `auth_user_id.eq.${user.id}`
+        )
+        .limit(1)
+        .maybeSingle()
+
+      if (!clientData?.id) return NextResponse.json(null)
+
+      const { data, error } = await service
+        .from('order_ratings')
+        .select('*')
+        .eq('client_id', clientData.id)
+        .eq('rating_type', 'platform')
+        .maybeSingle()
+
+      if (error && (error as { code?: string }).code === 'PGRST205') {
+        return NextResponse.json(null)
+      }
+      if (error) throw error
+      return NextResponse.json(data)
+    }
+
     if (isPublic) {
       let query = service
         .from('order_ratings')
-        .select('id, rating, review_comment, rating_type, client_display_name, admin_reply, admin_reply_at, created_at, order_id, order:orders(id, title)')
+        .select(
+          'id, rating, review_comment, rating_type, client_display_name, admin_reply, admin_reply_at, created_at, order_id, order:orders(id, title, services:service_id(category, title))'
+        )
         .eq('is_visible', true)
         .eq('is_published', true)
         .order('created_at', { ascending: false })
@@ -203,10 +239,18 @@ export async function GET(req: Request) {
       if (error) throw error
 
       return NextResponse.json(
-        (data || []).map((row: Record<string, unknown>) => ({
-          ...row,
-          order: Array.isArray(row.order) ? row.order[0] : row.order,
-        }))
+        (data || []).map((row: Record<string, unknown>) => {
+          const order = Array.isArray(row.order) ? row.order[0] : row.order
+          const orderObj = order as Record<string, unknown> | null
+          let services = orderObj?.services
+          if (Array.isArray(services)) services = services[0]
+          return {
+            ...row,
+            order: orderObj
+              ? { ...orderObj, services: services || null }
+              : null,
+          }
+        })
       )
     }
 
@@ -229,9 +273,9 @@ export async function GET(req: Request) {
       return NextResponse.json(data || [])
     }
 
-    if (!orderId && !completed) {
+    if (!orderId && !completed && !platformMine) {
       return NextResponse.json(
-        { error: 'Missing order_id, completed, public, or admin parameter' },
+        { error: 'Missing order_id, completed, public, platform_mine, or admin parameter' },
         { status: 400 }
       )
     }
@@ -310,6 +354,7 @@ export async function GET(req: Request) {
       .from('order_ratings')
       .select('*')
       .eq('order_id', orderId!)
+      .eq('rating_type', 'order')
       .maybeSingle()
 
     if (error && (error as { code?: string }).code === 'PGRST205') {

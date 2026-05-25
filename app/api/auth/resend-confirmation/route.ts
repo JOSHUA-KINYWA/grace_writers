@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
-import { getSignupConfirmRedirectUrl } from '@/lib/app-url'
-import { rewriteSupabaseAuthLink } from '@/lib/auth-link'
+import { buildDirectAuthCallbackLink } from '@/lib/auth-link'
+import { getAppUrl } from '@/lib/app-url'
 import { isSmtpConfigured } from '@/lib/email/config'
 import { sendAppEmail } from '@/lib/email/send'
 import { emailTemplates } from '@/lib/email-templates'
@@ -17,10 +17,7 @@ export async function POST(req: Request) {
 
     if (!isSmtpConfigured()) {
       return NextResponse.json(
-        {
-          error: 'Email not configured on server.',
-          fallback: true,
-        },
+        { error: 'Email not configured on server.', fallback: true },
         { status: 503 }
       )
     }
@@ -30,30 +27,33 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const redirectTo = getSignupConfirmRedirectUrl()
+    const appUrl = getAppUrl()
     const { data, error } = await service.auth.admin.generateLink({
       type: 'magiclink',
       email,
-      options: { redirectTo },
+      options: {
+        redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/dashboard')}`,
+      },
     })
 
     if (error) {
       console.error('[resend-confirmation] generateLink:', error.message)
       return NextResponse.json({
         success: true,
-        message: 'If that email is registered and unverified, a confirmation link was sent.',
+        message: 'If that email is registered, a confirmation link was sent.',
       })
     }
 
-    const rawLink =
-      data?.properties?.action_link ||
-      (data as { action_link?: string })?.action_link
-
-    if (!rawLink) {
+    const tokenHash = data?.properties?.hashed_token
+    if (!tokenHash) {
       return NextResponse.json({ error: 'Could not generate confirmation link' }, { status: 500 })
     }
 
-    const confirmLink = rewriteSupabaseAuthLink(rawLink, 'magiclink')
+    const confirmLink = buildDirectAuthCallbackLink({
+      tokenHash,
+      verificationType: data.properties?.verification_type || 'magiclink',
+      nextPath: '/dashboard',
+    })
 
     await sendAppEmail({
       kind: 'auth_email_confirm',
@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: 'Confirmation email sent. Check your inbox and spam folder.',
+      appUrl,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to send confirmation'
