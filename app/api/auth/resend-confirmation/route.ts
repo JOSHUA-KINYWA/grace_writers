@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { getSignupConfirmRedirectUrl } from '@/lib/app-url'
+import { rewriteSupabaseAuthLink } from '@/lib/auth-link'
 import { isSmtpConfigured } from '@/lib/email/config'
 import { sendAppEmail } from '@/lib/email/send'
 import { emailTemplates } from '@/lib/email-templates'
@@ -44,13 +45,15 @@ export async function POST(req: Request) {
       })
     }
 
-    const confirmLink =
+    const rawLink =
       data?.properties?.action_link ||
       (data as { action_link?: string })?.action_link
 
-    if (!confirmLink) {
+    if (!rawLink) {
       return NextResponse.json({ error: 'Could not generate confirmation link' }, { status: 500 })
     }
+
+    const confirmLink = rewriteSupabaseAuthLink(rawLink, 'magiclink')
 
     await sendAppEmail({
       kind: 'auth_email_confirm',

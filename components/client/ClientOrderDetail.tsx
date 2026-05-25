@@ -61,15 +61,17 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     }
   }
 
+  const normalizeStatus = (status: string) =>
+    status === 'delivered' ? 'completed' : status
+
   const getProgressPercent = (status: string) => {
-    switch (status) {
+    const s = normalizeStatus(status)
+    switch (s) {
       case 'pending':
       case 'quote_sent':
         return 20
       case 'in_progress':
         return 45
-      case 'delivered':
-        return 70
       case 'revision':
         return 60
       case 'completed':
@@ -80,19 +82,18 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   }
 
   const getStatusSummary = (status: string) => {
-    switch (status) {
+    const s = normalizeStatus(status)
+    switch (s) {
       case 'pending':
-        return 'Your request is waiting for confirmation from our team.'
+        return 'Your request is waiting for admin approval before work begins.'
       case 'quote_sent':
-        return 'Our team has reviewed your request. Check messages for next steps to start work.'
+        return 'Our team has reviewed your request. Check messages for next steps.'
       case 'in_progress':
         return 'The writing team is working on your order right now.'
-      case 'delivered':
-        return 'Your deliverables are ready. Review them and mark the order complete.'
       case 'revision':
         return 'A revision request is active. We are updating your deliverables.'
       case 'completed':
-        return 'This order is complete. You can leave feedback and close the project.'
+        return 'This order is complete. Download files and leave feedback if you wish.'
       default:
         return 'Order status is being updated. Check back for the latest progress.'
     }
@@ -296,10 +297,9 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
   }
 
-  // Allow marking complete only when delivered (before revision phase)
-  const canMarkComplete = order.status === 'delivered' && order.deliverables && order.deliverables.length > 0
-  
-  // Allow revision requests for any order with deliverables (completed, delivered, revision, etc)
+  const normalizedStatus = normalizeStatus(order.status)
+
+  // Allow revision requests for any order with deliverables
   const canRequestRevision = order.deliverables && order.deliverables.length > 0 && order.status !== 'cancelled'
 
   const attachedFileLinks: OrderFileLink[] = clientFileUrls.map((url, idx) => {
@@ -443,19 +443,10 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
             </div>
 
             {/* ACTION BUTTONS - PROMINENT SECTION */}
-            {(order.status === 'delivered' || order.status === 'completed' || order.status === 'revision') && (
+            {(normalizedStatus === 'completed' || normalizedStatus === 'revision') && (
               <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-lg border-2 border-purple-300 p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">✨ What&apos;s Next?</h2>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {canMarkComplete && (
-                    <button
-                      onClick={markAsCompleted}
-                      disabled={loading}
-                      className="bg-green-600 text-white py-4 rounded-lg font-bold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg"
-                    >
-                      <FaCheckCircle /> Mark Completed
-                    </button>
-                  )}
                   {canRequestRevision && (
                     <button
                       onClick={() => {
@@ -592,7 +583,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
             </div>
 
             {/* Rating — available once work is delivered or the order is complete */}
-            {['delivered', 'completed', 'revision', 'in_progress'].includes(order.status) && (
+            {['completed', 'revision'].includes(normalizedStatus) && (
               <OrderRating orderId={order.id} />
             )}
 

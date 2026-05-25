@@ -245,20 +245,34 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
       // Update order with new deliverables
       const updatedDeliverables = [...(order.deliverables || []), ...uploadedUrls]
       
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ 
+      const completeRes = await fetch('/api/admin/orders/complete-on-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
           deliverables: updatedDeliverables,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', order.id)
+          fileCount: uploadedUrls.length,
+        }),
+      })
+      const completeData = await completeRes.json()
+      if (!completeRes.ok) {
+        throw new Error(completeData.error || 'Failed to update order after upload')
+      }
 
-      if (updateError) throw updateError
-      await notifyClientAboutUpload(supabase, clientUser, uploadedUrls, order)
-
-      setOrder({ ...order, deliverables: updatedDeliverables })
+      const nextOrder = completeData.order || {
+        ...order,
+        deliverables: updatedDeliverables,
+        status: completeData.autoCompleted ? 'completed' : order.status,
+      }
+      setOrder(nextOrder)
+      setFormData((prev) => ({
+        ...prev,
+        status: nextOrder.status || prev.status,
+      }))
       showAppToast(
-        `${uploadedUrls.length} file(s) uploaded — client notified`,
+        completeData.autoCompleted
+          ? `${uploadedUrls.length} file(s) uploaded — order marked completed`
+          : `${uploadedUrls.length} file(s) uploaded — client notified`,
         'success'
       )
       router.refresh()
@@ -279,6 +293,36 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
       generateSignedUrls(order.deliverables, setDeliverableUrls)
     }
   }, [order])
+
+  async function handleApproveOrder() {
+    if (order.status !== 'pending' && order.status !== 'quote_sent') {
+      showAppToast('Only pending orders can be approved', 'error')
+      return
+    }
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/orders/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          status: 'in_progress',
+        }),
+      })
+      if (!response.ok) {
+        throw new Error(await parseApiError(response, 'Failed to approve order'))
+      }
+      setFormData((prev) => ({ ...prev, status: 'in_progress' }))
+      setOrder({ ...order, status: 'in_progress' })
+      showAppToast('Order approved — now in progress', 'success')
+      router.refresh()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Approve failed'
+      showAppToast(message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -521,22 +565,35 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
           <h2 className="text-xl font-bold text-gray-900 mb-6">Manage Order: {order.title.length > 20 ? order.title.substring(0, 20) + '...' : order.title}</h2>
 
           <div className="space-y-4">
+            {(order.status === 'pending' || order.status === 'quote_sent') && (
+              <button
+                type="button"
+                onClick={handleApproveOrder}
+                disabled={loading}
+                className="w-full py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50"
+              >
+                Approve order → In progress
+              </button>
+            )}
+
+            <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+              Uploading deliverables automatically marks the order <strong>Completed</strong> when it is in progress or on revision.
+            </p>
+
             <div>
               <label htmlFor="order-status" className="block text-sm font-bold text-gray-700 mb-2">
                 Status *
               </label>
               <select
                 id="order-status"
-                value={formData.status}
+                value={formData.status === 'delivered' ? 'completed' : formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold"
               >
-                <option value="pending">Pending</option>
-                <option value="quote_sent">Quote Sent</option>
+                <option value="pending">Pending (awaiting approval)</option>
                 <option value="in_progress">In Progress</option>
                 <option value="revision">Revision</option>
-                <option value="delivered">Delivered</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>

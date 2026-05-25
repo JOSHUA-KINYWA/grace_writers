@@ -54,6 +54,19 @@ function AuthCallbackHandler() {
         }
 
         if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+          if (accessToken && refreshToken) {
+            const { error: setErr } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+            if (setErr) throw setErr
+            if (!active) return
+            router.replace(flow === 'recovery' ? '/account/change-password' : safeNext)
+            return
+          }
           const { data, error: sessionError } = await supabase.auth.getSession()
           if (sessionError) throw sessionError
           if (data.session) {

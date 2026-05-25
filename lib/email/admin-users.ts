@@ -16,6 +16,25 @@ export async function getAdminAuthUserIds(): Promise<string[]> {
       ids.push(user.id)
     }
   }
+
+  if (ids.length === 0) {
+    const adminEmail = (
+      process.env.ADMIN_EMAIL ||
+      process.env.BREVO_SENDER_EMAIL ||
+      ''
+    )
+      .trim()
+      .toLowerCase()
+    if (adminEmail) {
+      for (const user of data?.users || []) {
+        if (user.email?.toLowerCase() === adminEmail) {
+          ids.push(user.id)
+          break
+        }
+      }
+    }
+  }
+
   return ids
 }
 

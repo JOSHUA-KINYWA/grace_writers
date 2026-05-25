@@ -6,7 +6,8 @@ import ConditionalRealtimeChat from "@/components/ConditionalRealtimeChat";
 import ClientPresenceHeartbeat from "@/components/ClientPresenceHeartbeat";
 import SessionToasts from "@/components/SessionToasts";
 import ActionToastStack from "@/components/ActionToastStack";
-import { ReactNode } from "react";
+import AuthHashRedirect from "@/components/AuthHashRedirect";
+import { ReactNode, Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,6 +27,9 @@ export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="antialiased" suppressHydrationWarning>
+        <Suspense fallback={null}>
+          <AuthHashRedirect />
+        </Suspense>
         <AppShell>{children}</AppShell>
         <ConditionalRealtimeChat />
         <ClientPresenceHeartbeat />

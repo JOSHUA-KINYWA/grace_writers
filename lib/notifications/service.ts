@@ -50,6 +50,12 @@ export async function notifyAllAdmins(input: {
   message: string
 }) {
   const adminIds = await getAdminAuthUserIds()
+  if (!adminIds.length) {
+    console.error(
+      '[notification] No admin users found. Set user_metadata.role=admin on your account, or set ADMIN_EMAIL to your login email.'
+    )
+    return { notified: 0 }
+  }
   await Promise.all(
     adminIds.map((userId) =>
       insertAppNotification({
@@ -61,6 +67,7 @@ export async function notifyAllAdmins(input: {
       }).catch(() => {})
     )
   )
+  return { notified: adminIds.length }
 }
 
 export async function resolveClientNotifyTarget(

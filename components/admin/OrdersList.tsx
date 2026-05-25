@@ -159,7 +159,7 @@ export default function OrdersList({ initialOrders, services }: OrdersListProps)
         >
           All ({orders.length})
         </button>
-        {['pending', 'quote_sent', 'in_progress', 'revision', 'delivered', 'completed', 'cancelled'].map((status) => (
+        {['pending', 'in_progress', 'revision', 'completed', 'cancelled'].map((status) => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -371,7 +371,6 @@ function OrderModal({ order, services, onClose, onUpdate, updating }: any) {
               <option value="quote_sent">Quote Sent</option>
               <option value="in_progress">In Progress</option>
               <option value="revision">Revision</option>
-              <option value="delivered">Delivered</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>

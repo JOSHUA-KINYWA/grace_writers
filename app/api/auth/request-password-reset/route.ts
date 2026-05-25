@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { getPasswordResetRedirectUrl } from '@/lib/app-url'
+import { rewriteSupabaseAuthLink } from '@/lib/auth-link'
 import { isSmtpConfigured } from '@/lib/email/config'
 import { sendAppEmail } from '@/lib/email/send'
 import { emailTemplates } from '@/lib/email-templates'
@@ -49,16 +50,18 @@ export async function POST(req: Request) {
       })
     }
 
-    const resetLink =
+    const rawLink =
       data?.properties?.action_link ||
       (data as { action_link?: string })?.action_link
 
-    if (!resetLink) {
+    if (!rawLink) {
       return NextResponse.json(
         { error: 'Could not generate reset link. Check Supabase Auth settings.' },
         { status: 500 }
       )
     }
+
+    const resetLink = rewriteSupabaseAuthLink(rawLink, 'recovery')
 
     await sendAppEmail({
       kind: 'auth_password_reset',

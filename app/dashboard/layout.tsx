@@ -15,6 +15,7 @@ import {
   FaSignOutAlt,
   FaImages,
   FaWhatsapp,
+  FaStar,
 } from 'react-icons/fa'
 import { getUrgentWhatsAppHref } from '@/lib/support-contact'
 import MessageNavBadge from '@/components/MessageNavBadge'
@@ -81,6 +82,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: FaImages, label: 'Work Samples', href: '/dashboard/samples' },
     { icon: FaFileAlt, label: 'Revisions', href: '/dashboard/revisions' },
     { icon: FaEnvelope, label: 'Messages', href: '/dashboard/messages' },
+    { icon: FaStar, label: 'Reviews', href: '/dashboard/reviews' },
     { icon: FaCog, label: 'Account', href: '/account/profile' },
   ]
 

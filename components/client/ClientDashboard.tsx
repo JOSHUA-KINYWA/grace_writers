@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ClientLayout from './ClientLayout'
-import PublicReviewsPanel from './PublicReviewsPanel'
-import PlatformRatingCard from './PlatformRatingCard'
 import { FaCheckCircle, FaClock, FaHourglass, FaBox, FaFire, FaFilter, FaComments, FaUserCircle, FaArrowRight, FaHistory, FaStar, FaImages } from 'react-icons/fa'
 import { formatDate } from '@/lib/utils/formatDate'
 
@@ -669,14 +667,19 @@ export default function ClientDashboard({ userId, initialOrders = [], client }: 
             )}
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-            <PublicReviewsPanel />
-            <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 shadow-sm h-fit">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Your voice</p>
-              <h2 className="text-lg font-bold text-slate-900 mb-3">Rate our platform</h2>
-              <PlatformRatingCard />
+          <Link
+            href="/dashboard/reviews"
+            className="block bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm hover:border-purple-300 hover:shadow-md transition"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Community</p>
+                <h2 className="text-lg font-bold text-slate-900">Reviews & ratings</h2>
+                <p className="text-sm text-slate-600 mt-1">Read client reviews or rate our platform</p>
+              </div>
+              <FaStar className="text-amber-500 text-2xl shrink-0" />
             </div>
-          </div>
+          </Link>
         </section>
       </div>
     </ClientLayout>
