@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FaSave, FaToggleOn, FaToggleOff } from 'react-icons/fa'
 import EmailHealthPanel from '@/components/admin/EmailHealthPanel'
+import DeleteOldFilesPanel from '@/components/admin/DeleteOldFilesPanel'
 
 type Settings = {
   businessName: string
@@ -234,6 +235,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Save Button */}
+      <div className="mb-6">
+        <DeleteOldFilesPanel />
+      </div>
+
       <div className="flex justify-end">
         <button 
           onClick={handleSave}
