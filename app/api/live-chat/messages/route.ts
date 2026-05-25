@@ -14,6 +14,7 @@ import { emailTemplates } from '@/lib/email-templates'
 import { sendAppEmail } from '@/lib/email/send'
 import {
   insertAppNotification,
+  notifyAllAdmins,
   resolveClientNotifyTarget,
 } from '@/lib/notifications/service'
 
@@ -289,6 +290,24 @@ export async function POST(req: Request) {
       .from('chat_rooms')
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', chatRoomId)
+
+    if (!isAdmin) {
+      const preview = content.slice(0, 120)
+      const { data: clientRow } = room.client_id
+        ? await service
+            .from('clients')
+            .select('name, email')
+            .eq('id', room.client_id)
+            .maybeSingle()
+        : { data: null }
+      const clientLabel = clientRow?.name || clientRow?.email || 'A client'
+      void notifyAllAdmins({
+        orderId: null,
+        type: 'live_chat_message',
+        title: 'New live chat message',
+        message: `${clientLabel}: ${preview}`,
+      }).catch((err) => console.error('Live chat admin notify failed:', err))
+    }
 
     if (isAdmin && room.client_id) {
       const preview = content.slice(0, 120)

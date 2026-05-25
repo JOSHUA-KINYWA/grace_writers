@@ -333,8 +333,8 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     attachedFileLinks.length > 0 || uploadedFileLinks.length > 0 || revisionFileLinks.length > 0
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto w-full min-w-0">
         <Link href="/dashboard" className="inline-flex items-center gap-2 text-purple-700 hover:text-purple-800 mb-6 font-bold">
           <FaArrowLeft /> Back to Dashboard
         </Link>
@@ -342,11 +342,11 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
         <ClientOrderLayout revisionCount={revisions.length} orderStatus={order.status}>
           <div className="space-y-6">
             {/* Order Overview */}
-            <div className="grid gap-6 xl:grid-cols-[1.6fr_0.9fr]">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 xl:grid-cols-[1.6fr_0.9fr]">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{order.title}</h1>
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 break-words">{order.title}</h1>
                     <span className={`inline-flex items-center gap-2 px-3 py-1 text-sm rounded-full font-bold border-2 ${getStatusColor(order.status)}`}>
                       <FaClipboardList />
                       {order.status.replace('_', ' ').toUpperCase()}

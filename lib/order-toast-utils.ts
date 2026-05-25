@@ -81,7 +81,39 @@ export function notificationToToast(
         badge: 'Live chat',
         tag: 'Support',
         message: row.message || 'New message from support',
-        href: role === 'admin' ? '/admin' : '/dashboard',
+        href: role === 'admin' ? '/admin/chat' : '/dashboard',
+        createdAt: row.created_at || new Date().toISOString(),
+      }
+    }
+    if (row.type === 'contact_inquiry') {
+      return {
+        id: row.id,
+        orderId: '',
+        title: row.title || 'Contact form',
+        subject: 'Inquiry',
+        category: 'Contact',
+        deadlineText: 'Respond soon',
+        deadlineUrgent: false,
+        badge: 'New inquiry',
+        tag: 'Contact',
+        message: row.message || 'New contact form submission',
+        href: role === 'admin' ? '/admin/inquiries' : '/contact',
+        createdAt: row.created_at || new Date().toISOString(),
+      }
+    }
+    if (row.type === 'admin_new_signup') {
+      return {
+        id: row.id,
+        orderId: '',
+        title: row.title || 'New signup',
+        subject: 'Client',
+        category: 'Account',
+        deadlineText: '',
+        deadlineUrgent: false,
+        badge: 'New client',
+        tag: 'Signup',
+        message: row.message || 'A new client registered',
+        href: role === 'admin' ? '/admin/clients' : '/dashboard',
         createdAt: row.created_at || new Date().toISOString(),
       }
     }

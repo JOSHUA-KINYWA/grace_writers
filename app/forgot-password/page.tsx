@@ -61,8 +61,9 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/account/change-password` : undefined
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : {})
+      const { getPasswordResetRedirectUrl } = await import('@/lib/app-url')
+      const redirectTo = getPasswordResetRedirectUrl()
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
       
       if (error) {
         // Handle specific Supabase errors without throwing to avoid console stack traces

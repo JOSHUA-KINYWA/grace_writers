@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ClientLayout from './ClientLayout'
+import ContactSupportCard from './ContactSupportCard'
+import PublicReviewsPanel from './PublicReviewsPanel'
+import PlatformRatingCard from './PlatformRatingCard'
 import { FaCheckCircle, FaClock, FaHourglass, FaBox, FaFire, FaFilter, FaComments, FaUserCircle, FaArrowRight, FaHistory, FaStar, FaImages } from 'react-icons/fa'
 import { formatDate } from '@/lib/utils/formatDate'
 
@@ -330,6 +333,8 @@ export default function ClientDashboard({ userId, initialOrders = [], client }: 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 md:gap-6 auto-rows-max md:auto-rows-auto">
         <aside className="hidden md:flex flex-col space-y-6 md:sticky md:top-4 md:h-fit">
           <div className="space-y-5">
+            <ContactSupportCard />
+
             <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-600">Quick</p>
               <h2 className="mt-2 text-lg font-bold text-slate-900">Actions</h2>
@@ -469,7 +474,23 @@ export default function ClientDashboard({ userId, initialOrders = [], client }: 
           </div>
         </aside>
 
-        <section className="col-span-1 md:col-span-2 lg:col-span-1 space-y-6">
+        <section className="col-span-1 md:col-span-2 lg:col-span-1 space-y-6 min-w-0">
+          <div className="md:hidden">
+            <ContactSupportCard compact />
+          </div>
+
+          <div className="hidden md:block lg:hidden">
+            <ContactSupportCard />
+          </div>
+
+          <PublicReviewsPanel />
+
+          <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Your voice</p>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">Rate our platform</h2>
+            <PlatformRatingCard />
+          </div>
+
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
             {stats.map((stat, idx) => renderStatCard(stat, idx))}

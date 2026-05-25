@@ -9,7 +9,9 @@ function getServiceClient() {
   )
 }
 
-// POST - Create or update order rating
+const RATING_TYPES = ['order', 'platform'] as const
+
+// POST - Create or update order/platform rating
 export async function POST(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,62 +25,115 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { order_id, rating, review_comment } = body
+    const {
+      order_id,
+      rating,
+      review_comment,
+      rating_type = 'order',
+      client_display_name,
+    } = body
 
-    if (!order_id || !rating) {
-      return NextResponse.json(
-        { error: 'Missing required fields: order_id, rating' },
-        { status: 400 }
-      )
+    if (!rating || rating < 1 || rating > 5) {
+      return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 })
     }
 
-    const { data: order, error: orderError } = await service
-      .from('orders')
-      .select('id, client_id')
-      .eq('id', order_id)
-      .single()
+    const type = RATING_TYPES.includes(rating_type) ? rating_type : 'order'
 
-    if (orderError || !order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    if (type === 'order' && !order_id) {
+      return NextResponse.json({ error: 'order_id required for order ratings' }, { status: 400 })
     }
 
-    if (!isAdmin) {
-      const { data: clientData } = await service
-        .from('clients')
-        .select('auth_user_id, email')
-        .eq('id', order.client_id)
+    let clientId: string | null = null
+
+    if (type === 'order') {
+      const { data: order, error: orderError } = await service
+        .from('orders')
+        .select('id, client_id')
+        .eq('id', order_id)
         .single()
 
-      if (!clientData) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      if (orderError || !order) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 })
       }
 
-      if (!clientData.auth_user_id) {
-        await service
+      clientId = order.client_id
+
+      if (!isAdmin) {
+        const { data: clientData } = await service
           .from('clients')
-          .update({ auth_user_id: user.id })
+          .select('auth_user_id, email, name')
           .eq('id', order.client_id)
-      } else if (clientData.auth_user_id !== user.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+          .single()
+
+        if (!clientData) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        }
+
+        if (!clientData.auth_user_id) {
+          await service
+            .from('clients')
+            .update({ auth_user_id: user.id })
+            .eq('id', order.client_id)
+        } else if (clientData.auth_user_id !== user.id) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        }
+      } else {
+        clientId = order.client_id
+      }
+    } else {
+      const { data: clientData } = await service
+        .from('clients')
+        .select('id, auth_user_id, name')
+        .or(
+          user.email
+            ? `auth_user_id.eq.${user.id},email.eq.${user.email}`
+            : `auth_user_id.eq.${user.id}`
+        )
+        .limit(1)
+        .maybeSingle()
+
+      if (!clientData && !isAdmin) {
+        return NextResponse.json({ error: 'Client profile not found' }, { status: 404 })
+      }
+      clientId = clientData?.id || null
+      if (!clientId) {
+        return NextResponse.json({ error: 'Client profile required' }, { status: 400 })
       }
     }
 
-    const { data: existingRating } = await service
-      .from('order_ratings')
-      .select('id')
-      .eq('order_id', order_id)
-      .maybeSingle()
+    const displayName =
+      client_display_name ||
+      (user.user_metadata?.name as string) ||
+      user.email?.split('@')[0] ||
+      'Client'
+
+    const matchQuery = service.from('order_ratings').select('id')
+    if (type === 'order') {
+      matchQuery.eq('order_id', order_id).eq('rating_type', 'order')
+    } else {
+      matchQuery.eq('client_id', clientId!).eq('rating_type', 'platform')
+    }
+
+    const { data: existingRating } = await matchQuery.maybeSingle()
+
+    const payload = {
+      order_id: type === 'order' ? order_id : null,
+      client_id: clientId,
+      rating,
+      review_comment: review_comment || null,
+      rating_type: type,
+      client_display_name: displayName,
+      is_published: true,
+      is_visible: true,
+      updated_at: new Date().toISOString(),
+    }
 
     let result
     if (existingRating) {
       const { data, error } = await service
         .from('order_ratings')
-        .update({
-          rating,
-          review_comment,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', order_id)
+        .update(payload)
+        .eq('id', existingRating.id)
         .select()
         .single()
 
@@ -88,10 +143,7 @@ export async function POST(req: Request) {
       const { data, error } = await service
         .from('order_ratings')
         .insert({
-          order_id,
-          client_id: order.client_id,
-          rating,
-          review_comment,
+          ...payload,
           created_at: new Date().toISOString(),
         })
         .select()
@@ -112,7 +164,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'Ratings are not set up yet. Run migrations/create_order_ratings_table.sql in Supabase SQL Editor, or run: node scripts/ensure-order-ratings-table.mjs',
+            'Ratings are not set up yet. Run migrations/enhance_order_ratings.sql in Supabase SQL Editor.',
         },
         { status: 503 }
       )
@@ -122,7 +174,7 @@ export async function POST(req: Request) {
   }
 }
 
-// GET - Fetch order rating
+// GET - Fetch ratings (order, completed, public feed, admin list)
 export async function GET(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -131,11 +183,55 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const orderId = searchParams.get('order_id')
   const completed = searchParams.get('completed') === 'true'
+  const isPublic = searchParams.get('public') === 'true'
+  const adminList = searchParams.get('admin') === 'true'
 
   try {
+    if (isPublic) {
+      let query = service
+        .from('order_ratings')
+        .select('id, rating, review_comment, rating_type, client_display_name, admin_reply, admin_reply_at, created_at, order_id, order:orders(id, title)')
+        .eq('is_visible', true)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      const { data, error } = await query
+      if (error && (error as { code?: string }).code === 'PGRST205') {
+        return NextResponse.json([])
+      }
+      if (error) throw error
+
+      return NextResponse.json(
+        (data || []).map((row: Record<string, unknown>) => ({
+          ...row,
+          order: Array.isArray(row.order) ? row.order[0] : row.order,
+        }))
+      )
+    }
+
+    if (adminList) {
+      if (!isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+
+      const { data, error } = await service
+        .from('order_ratings')
+        .select('*, order:orders(id, title), client:clients(id, name, email)')
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (error && (error as { code?: string }).code === 'PGRST205') {
+        return NextResponse.json([])
+      }
+      if (error) throw error
+
+      return NextResponse.json(data || [])
+    }
+
     if (!orderId && !completed) {
       return NextResponse.json(
-        { error: 'Missing order_id or completed parameter' },
+        { error: 'Missing order_id, completed, public, or admin parameter' },
         { status: 400 }
       )
     }
@@ -224,6 +320,74 @@ export async function GET(req: Request) {
     return NextResponse.json(data)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch rating'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+// PATCH - Admin moderation / reply
+export async function PATCH(req: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || user.user_metadata?.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  try {
+    const body = await req.json()
+    const { id, admin_reply, is_visible, is_published } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'id required' }, { status: 400 })
+    }
+
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (typeof admin_reply === 'string') {
+      updates.admin_reply = admin_reply
+      updates.admin_reply_at = new Date().toISOString()
+    }
+    if (typeof is_visible === 'boolean') updates.is_visible = is_visible
+    if (typeof is_published === 'boolean') updates.is_published = is_published
+
+    const service = getServiceClient()
+    const { data, error } = await service
+      .from('order_ratings')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return NextResponse.json(data)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Update failed'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+// DELETE - Admin remove rating
+export async function DELETE(req: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || user.user_metadata?.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const id = new URL(req.url).searchParams.get('id')
+  if (!id) {
+    return NextResponse.json({ error: 'id required' }, { status: 400 })
+  }
+
+  try {
+    const service = getServiceClient()
+    const { error } = await service.from('order_ratings').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Delete failed'
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

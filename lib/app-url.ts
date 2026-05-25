@@ -14,3 +14,18 @@ export function getAppUrl(): string {
   }
   return 'http://localhost:3000'
 }
+
+/** Auth email links (reset, confirm) should land here — add this URL in Supabase Auth redirect URLs. */
+export function getAuthCallbackUrl(nextPath = '/dashboard'): string {
+  const base = getAppUrl()
+  const next = nextPath.startsWith('/') ? nextPath : `/${nextPath}`
+  return `${base}/auth/callback?next=${encodeURIComponent(next)}`
+}
+
+export function getPasswordResetRedirectUrl(): string {
+  return `${getAuthCallbackUrl('/account/change-password')}&flow=recovery`
+}
+
+export function getSignupConfirmRedirectUrl(): string {
+  return getAuthCallbackUrl('/dashboard')
+}

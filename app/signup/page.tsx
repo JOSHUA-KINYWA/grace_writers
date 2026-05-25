@@ -67,10 +67,12 @@ function SignupPageContent() {
       return
     }
 
+    const { getSignupConfirmRedirectUrl } = await import('@/lib/app-url')
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
+        emailRedirectTo: getSignupConfirmRedirectUrl(),
         data: {
           name: formData.name,
           phone: formData.phone

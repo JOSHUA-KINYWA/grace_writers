@@ -3,20 +3,20 @@
 import { ReactNode, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FaBars, FaTimes, FaHome, FaUsers, FaShoppingCart, FaCog, FaChartBar, FaEnvelope, FaFileAlt, FaBox, FaGift, FaComments } from 'react-icons/fa'
+import { FaBars, FaTimes, FaHome, FaUsers, FaShoppingCart, FaCog, FaChartBar, FaEnvelope, FaFileAlt, FaBox, FaGift, FaComments, FaStar } from 'react-icons/fa'
 import LogoutButton from './LogoutButton'
 import AdminOnlineAlerts from './AdminOnlineAlerts'
 import AdminPresenceHeartbeat from '@/components/AdminPresenceHeartbeat'
 import MessageNavBadge from '@/components/MessageNavBadge'
 import DashboardHeaderUser from '@/components/DashboardHeaderUser'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
+import { useUnreadLiveChatCount } from '@/hooks/useUnreadLiveChatCount'
 
 interface AdminLayoutProps {
   children: ReactNode
 }
 
-function AdminNavMessagesLabel({ label }: { label: string }) {
-  const { count } = useUnreadMessageCount('admin')
+function AdminNavBadgeLabel({ label, count }: { label: string; count: number }) {
   return (
     <span className="flex items-center gap-2 w-full">
       <span>{label}</span>
@@ -27,6 +27,16 @@ function AdminNavMessagesLabel({ label }: { label: string }) {
       )}
     </span>
   )
+}
+
+function AdminNavMessagesLabel({ label }: { label: string }) {
+  const { count } = useUnreadMessageCount('admin')
+  return <AdminNavBadgeLabel label={label} count={count} />
+}
+
+function AdminNavLiveChatLabel({ label }: { label: string }) {
+  const count = useUnreadLiveChatCount('admin')
+  return <AdminNavBadgeLabel label={label} count={count} />
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -57,6 +67,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { icon: FaChartBar, label: 'Analytics', href: '/admin/analytics' },
     { icon: FaFileAlt, label: 'Inquiries', href: '/admin/inquiries' },
     { icon: FaBox, label: 'Work Samples', href: '/admin/portfolio' },
+    { icon: FaStar, label: 'Ratings', href: '/admin/ratings' },
     { icon: FaCog, label: 'Settings', href: '/admin/settings' },
   ]
 
@@ -108,6 +119,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   {(sidebarOpen || isMobile) &&
                     (item.href === '/admin/messages' ? (
                       <AdminNavMessagesLabel label={item.label} />
+                    ) : item.href === '/admin/chat' ? (
+                      <AdminNavLiveChatLabel label={item.label} />
                     ) : (
                       <span>{item.label}</span>
                     ))}
