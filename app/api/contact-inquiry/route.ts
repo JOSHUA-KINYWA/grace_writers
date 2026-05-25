@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
-import { getAdminEmail, isSmtpConfigured } from '@/lib/email/config'
-import { sendAppEmail } from '@/lib/email/send'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import { notifyAllAdmins } from '@/lib/notifications/service'
 
 function buildMessageBody(service: string | undefined, message: string) {
@@ -70,25 +69,17 @@ export async function POST(req: Request) {
       message: `${name} (${email}): ${preview}`,
     })
 
-    const adminEmail = getAdminEmail()
-    if (adminEmail && isSmtpConfigured()) {
-      try {
-        await sendAppEmail({
-          kind: 'admin_contact_inquiry',
-          to: adminEmail,
-          subject: `Contact form — ${name}`,
-          html: emailTemplates.contactInquiryNotification(
-            name,
-            email,
-            phone ?? undefined,
-            service,
-            fullMessage
-          ),
-        })
-      } catch (emailErr) {
-        console.error('[contact-inquiry] admin email failed:', emailErr)
-      }
-    }
+    await sendEmailToAllAdmins({
+      kind: 'admin_contact_inquiry',
+      subject: `Contact form — ${name}`,
+      html: emailTemplates.contactInquiryNotification(
+        name,
+        email,
+        phone ?? undefined,
+        service,
+        fullMessage
+      ),
+    })
 
     return NextResponse.json({ success: true, id: inquiry?.id })
   } catch (err) {

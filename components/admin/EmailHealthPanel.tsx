@@ -7,6 +7,8 @@ type Health = {
   provider: string
   fromEmail: string | null
   adminEmail: string | null
+  recipientCount?: number
+  adminEmails?: string[]
   hasApiKey: boolean
   hasSmtpRelay: boolean
   hint: string | null
@@ -26,7 +28,10 @@ export default function EmailHealthPanel() {
       const res = await fetch('/api/admin/email-health', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load')
-      setHealth(data)
+      setHealth({
+        ...data,
+        recipientCount: data.recipientCount ?? 0,
+      })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
@@ -78,9 +83,16 @@ export default function EmailHealthPanel() {
             {health.fromEmail || '—'}
           </li>
           <li>
-            <span className="font-medium">Admin notifications to:</span>{' '}
-            {health.adminEmail || '— (set ADMIN_EMAIL)'}
+            <span className="font-medium">Admin alert recipients:</span>{' '}
+            {health.recipientCount
+              ? `${health.recipientCount} address(es)`
+              : '— (set ADMIN_EMAIL or admin user emails)'}
           </li>
+          {health.adminEmails && health.adminEmails.length > 0 && (
+            <li className="text-xs text-slate-500 break-all">
+              {health.adminEmails.join(', ')}
+            </li>
+          )}
           <li>
             <span className="font-medium">Brevo API key:</span>{' '}
             {health.hasApiKey ? 'Set' : 'Missing'}

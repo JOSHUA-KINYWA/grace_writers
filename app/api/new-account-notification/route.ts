@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { emailTemplates } from '@/lib/email-templates'
-import { getAdminEmail, isSmtpConfigured } from '@/lib/email/config'
-import { sendAppEmail } from '@/lib/email/send'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
+import { notifyAllAdmins } from '@/lib/notifications/service'
 
 export async function POST(req: Request) {
   try {
@@ -12,23 +12,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing clientEmail' }, { status: 400 })
     }
 
-    const adminEmail = getAdminEmail()
-    if (adminEmail && isSmtpConfigured()) {
-      try {
-        await sendAppEmail({
-          kind: 'admin_new_signup',
-          to: adminEmail,
-          subject: `New client signup — ${clientName || clientEmail}`,
-          html: emailTemplates.newAccountNotification(
-            clientName,
-            clientEmail,
-            clientPhone,
-            clientCompany
-          ),
-        })
-      } catch (emailErr) {
-        console.error('Error sending admin signup notification:', emailErr)
-      }
+    await notifyAllAdmins({
+      orderId: null,
+      type: 'admin_new_signup',
+      title: 'New client signup',
+      message: `${clientName || clientEmail} registered`,
+    }).catch(() => {})
+
+    const emailResult = await sendEmailToAllAdmins({
+      kind: 'admin_new_signup',
+      subject: `New client signup — ${clientName || clientEmail}`,
+      html: emailTemplates.newAccountNotification(
+        clientName,
+        clientEmail,
+        clientPhone,
+        clientCompany
+      ),
+    })
+    if (emailResult.errors.length) {
+      console.error('Admin signup email issues:', emailResult.errors)
     }
 
     return NextResponse.json({ success: true })

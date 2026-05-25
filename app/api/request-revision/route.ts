@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { emailTemplates } from '@/lib/email-templates'
-import { getAdminEmail } from '@/lib/email/config'
-import { sendAppEmail } from '@/lib/email/send'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import { notifyAllAdmins } from '@/lib/notifications/service'
 
 export async function POST(req: Request) {
@@ -153,7 +152,6 @@ export async function POST(req: Request) {
     }
 
     try {
-      const adminEmail = getAdminEmail()
       const clientName = orderDetails?.clients?.name || 'Client'
       const orderTitle = orderDetails?.title || 'Order'
 
@@ -164,20 +162,17 @@ export async function POST(req: Request) {
         message: `${clientName} requested revision #${revisionNumber} on "${orderTitle}"`,
       })
 
-      if (adminEmail) {
-        await sendAppEmail({
-          kind: 'revision_requested',
-          to: adminEmail,
-          subject: `Revision requested — ${orderTitle}`,
-          html: emailTemplates.revisionRequestedAdmin(
-            clientName,
-            orderTitle,
-            revisionNumber,
-            reason,
-            orderId
-          ),
-        })
-      }
+      await sendEmailToAllAdmins({
+        kind: 'revision_requested',
+        subject: `Revision requested — ${orderTitle}`,
+        html: emailTemplates.revisionRequestedAdmin(
+          clientName,
+          orderTitle,
+          revisionNumber,
+          reason,
+          orderId
+        ),
+      })
     } catch (emailErr) {
       console.error('Revision request email failed:', emailErr)
     }

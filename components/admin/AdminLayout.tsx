@@ -16,6 +16,13 @@ interface AdminLayoutProps {
   children: ReactNode
 }
 
+type NavItem = {
+  icon: typeof FaHome
+  label: string
+  href: string
+  badge?: 'messages' | 'livechat'
+}
+
 function AdminNavBadgeLabel({ label, count }: { label: string; count: number }) {
   return (
     <span className="flex items-center gap-2 w-full">
@@ -29,14 +36,12 @@ function AdminNavBadgeLabel({ label, count }: { label: string; count: number }) 
   )
 }
 
-function AdminNavMessagesLabel({ label }: { label: string }) {
-  const { count } = useUnreadMessageCount('admin')
-  return <AdminNavBadgeLabel label={label} count={count} />
-}
-
-function AdminNavLiveChatLabel({ label }: { label: string }) {
-  const count = useUnreadLiveChatCount('admin')
-  return <AdminNavBadgeLabel label={label} count={count} />
+function AdminNavItemLabel({ item }: { item: NavItem }) {
+  const { count: msgCount } = useUnreadMessageCount('admin')
+  const liveCount = useUnreadLiveChatCount('admin')
+  const count = item.badge === 'messages' ? msgCount : item.badge === 'livechat' ? liveCount : 0
+  if (item.badge) return <AdminNavBadgeLabel label={item.label} count={count} />
+  return <span>{item.label}</span>
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -57,13 +62,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const navItems = [
+  const mainNav: NavItem[] = [
     { icon: FaHome, label: 'Dashboard', href: '/admin' },
     { icon: FaUsers, label: 'Clients', href: '/admin/clients' },
     { icon: FaShoppingCart, label: 'Orders', href: '/admin/orders' },
-    { icon: FaEnvelope, label: 'Messages', href: '/admin/messages' },
-    { icon: FaComments, label: 'Live Chat', href: '/admin/chat' },
-    { icon: FaStar, label: 'Ratings', href: '/admin/ratings' },
+    { icon: FaEnvelope, label: 'Messages', href: '/admin/messages', badge: 'messages' },
+    { icon: FaComments, label: 'Live Chat', href: '/admin/chat', badge: 'livechat' },
+  ]
+
+  const manageNav: NavItem[] = [
+    { icon: FaStar, label: 'Manage Ratings', href: '/admin/ratings' },
     { icon: FaGift, label: 'Referrals', href: '/admin/referrals' },
     { icon: FaChartBar, label: 'Analytics', href: '/admin/analytics' },
     { icon: FaFileAlt, label: 'Inquiries', href: '/admin/inquiries' },
@@ -73,11 +81,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
+  const renderNav = (items: NavItem[]) =>
+    items.map((item) => (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          onClick={() => isMobile && setSidebarOpen(false)}
+          className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base font-medium ${
+            isActive(item.href)
+              ? 'bg-amber-500/20 text-amber-300 border-l-4 border-amber-400'
+              : item.href === '/admin/ratings'
+                ? 'text-amber-200 hover:bg-amber-500/15 hover:text-white border border-amber-500/30'
+                : 'text-slate-300 hover:bg-slate-700/40 hover:text-white'
+          }`}
+        >
+          <item.icon size={18} className="min-w-fit md:min-w-[20px]" />
+          {(sidebarOpen || isMobile) && <AdminNavItemLabel item={item} />}
+        </Link>
+      </li>
+    ))
+
   return (
     <div className={`min-h-screen flex flex-col ${isMobile ? '' : 'md:flex-row'} bg-slate-50`}>
       <AdminPresenceHeartbeat />
       <AdminOnlineAlerts />
-      {/* Sidebar */}
       <div
         className={`${
           sidebarOpen ? 'w-full md:w-72' : 'w-0 md:w-20'
@@ -85,7 +112,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           !sidebarOpen && !isMobile ? 'md:flex' : ''
         }`}
       >
-        {/* Logo/Header */}
         <div className="h-16 md:h-20 flex items-center justify-between px-4 border-b border-slate-700/50">
           {sidebarOpen && (
             <div className="flex flex-col">
@@ -101,42 +127,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-2 py-4 md:py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={() => isMobile && setSidebarOpen(false)}
-                  className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 rounded-lg transition duration-200 text-sm md:text-base font-medium ${
-                    isActive(item.href)
-                      ? 'bg-amber-500/20 text-amber-300 border-l-4 border-amber-400'
-                      : 'text-slate-300 hover:bg-slate-700/40 hover:text-white'
-                  }`}
-                >
-                  <item.icon size={18} className="min-w-fit md:min-w-[20px]" />
-                  {(sidebarOpen || isMobile) &&
-                    (item.href === '/admin/messages' ? (
-                      <AdminNavMessagesLabel label={item.label} />
-                    ) : item.href === '/admin/chat' ? (
-                      <AdminNavLiveChatLabel label={item.label} />
-                    ) : (
-                      <span>{item.label}</span>
-                    ))}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ul className="space-y-1">{renderNav(mainNav)}</ul>
+          {(sidebarOpen || isMobile) && (
+            <p className="px-4 pt-5 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Management
+            </p>
+          )}
+          <ul className="space-y-1">{renderNav(manageNav)}</ul>
         </nav>
 
-        {/* Logout Button */}
         <div className="p-3 md:p-4 border-t border-slate-700/50 bg-slate-800/50">
           <LogoutButton compact={!sidebarOpen && !isMobile} />
         </div>
       </div>
 
-      {/* Mobile overlay */}
       {sidebarOpen && isMobile && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -144,9 +149,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         />
       )}
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col w-full overflow-hidden">
-        {/* Top Bar */}
         <div className="h-16 md:h-20 bg-white shadow-md flex items-center justify-between px-4 md:px-8 border-b border-slate-200">
           <div className="min-w-0">
             <h2 className="text-lg md:text-3xl font-bold text-slate-900 truncate">Admin Panel</h2>
@@ -158,7 +161,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </div>
 
-        {/* Page Content */}
         <div className="flex-1 overflow-auto bg-slate-50">
           <div className="px-4 md:px-8 py-6 md:py-8">{children}</div>
         </div>

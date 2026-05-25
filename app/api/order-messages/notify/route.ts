@@ -3,8 +3,8 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
 import { getAppUrl, isSmtpConfigured } from '@/lib/email/config'
-import { getPrimaryAdminEmail } from '@/lib/email/admin-users'
 import { notifyAllAdmins } from '@/lib/notifications/service'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import { sendAppEmail } from '@/lib/email/send'
 
 export async function POST(req: Request) {
@@ -80,24 +80,20 @@ export async function POST(req: Request) {
         message: preview,
       })
 
-      const adminEmail = await getPrimaryAdminEmail()
-      if (adminEmail && isSmtpConfigured()) {
-        try {
-          await sendAppEmail({
-            kind: 'clarification_message',
-            to: adminEmail,
-            subject: `Client clarification: ${order.title}`,
-            html: emailTemplates.orderMessageNotification(
-              'Admin',
-              order.title || 'Order',
-              preview,
-              `${appUrl}/admin/messages?order=${orderId}`,
-              clientRow?.name || 'A client'
-            ),
-          })
-        } catch (emailErr) {
-          console.error('Admin clarification email failed:', emailErr)
-        }
+      const adminHtml = emailTemplates.orderMessageNotification(
+        'Admin',
+        order.title || 'Order',
+        preview,
+        `${appUrl}/admin/messages?order=${orderId}`,
+        clientRow?.name || 'A client'
+      )
+      const emailResult = await sendEmailToAllAdmins({
+        kind: 'clarification_message',
+        subject: `Client message: ${order.title}`,
+        html: adminHtml,
+      })
+      if (emailResult.errors.length) {
+        console.error('Admin message email issues:', emailResult.errors)
       }
     }
 

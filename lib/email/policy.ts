@@ -14,6 +14,8 @@ export type AppEmailKind =
   | 'admin_contact_inquiry'
   | 'password_changed'
   | 'admin_test_email'
+  | 'auth_password_reset'
+  | 'auth_email_confirm'
 
 const ENABLED: ReadonlySet<AppEmailKind> = new Set([
   'deliverable_upload',
@@ -27,6 +29,8 @@ const ENABLED: ReadonlySet<AppEmailKind> = new Set([
   'admin_contact_inquiry',
   'password_changed',
   'admin_test_email',
+  'auth_password_reset',
+  'auth_email_confirm',
 ])
 
 export function canSendEmail(kind: AppEmailKind): boolean {

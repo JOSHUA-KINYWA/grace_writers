@@ -1,6 +1,6 @@
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
-import { getAdminEmail } from '@/lib/email/config'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import { sendAppEmail } from '@/lib/email/send'
 import {
   insertAppNotification,
@@ -77,7 +77,6 @@ export async function sendRevisionUploadedNotification(
     return
   }
 
-  const adminEmail = getAdminEmail()
   await notifyAllAdmins({
     orderId: order.id,
     type: 'revision_uploaded',
@@ -85,14 +84,8 @@ export async function sendRevisionUploadedNotification(
     message: `Revision #${revision.revision_number} for "${order.title}"`,
   })
 
-  if (!adminEmail) {
-    console.error('ADMIN_EMAIL not configured; skipping revision upload admin email')
-    return
-  }
-
-  await sendAppEmail({
+  await sendEmailToAllAdmins({
     kind: 'revision_uploaded',
-    to: adminEmail,
     subject: `Client uploaded revision files — ${order.title}`,
     html: emailTemplates.revisionUploadedAdmin(order.title, order.id),
   })

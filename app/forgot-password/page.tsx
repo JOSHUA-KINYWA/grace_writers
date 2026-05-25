@@ -61,28 +61,43 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const { getPasswordResetRedirectUrl } = await import('@/lib/app-url')
-      const redirectTo = getPasswordResetRedirectUrl()
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
-      
-      if (error) {
-        // Handle specific Supabase errors without throwing to avoid console stack traces
-        if (error.message.includes('rate limit')) {
-          setError('Too many requests. Please wait at least 1 hour before requesting another reset for this email.')
+      const res = await fetch('/api/auth/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+
+      if (!res.ok && data.fallback) {
+        const { getPasswordResetRedirectUrl } = await import('@/lib/app-url')
+        const { error: supaError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: getPasswordResetRedirectUrl(),
+        })
+        if (supaError) {
+          if (supaError.message.includes('rate limit')) {
+            setError('Too many requests. Please wait before trying again.')
+            setLoading(false)
+            return
+          }
+          setError(supaError.message || 'Error sending recovery email')
           setLoading(false)
           return
         }
-        if (error.message.includes('invalid_grant')) {
-          setError('This email is not registered. Please check and try again.')
+      } else if (!res.ok) {
+        if (String(data.error || '').includes('rate limit')) {
+          setError('Too many requests. Please wait before trying again.')
           setLoading(false)
           return
         }
-        setError(error.message || 'Failed to request password reset')
+        setError(data.error || 'Error sending recovery email')
         setLoading(false)
         return
       }
-      
-      setMessage('✓ If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.')
+
+      setMessage(
+        data.message ||
+          '✓ If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.'
+      )
       setEmail('')
       
       // Set 120-second countdown (increased from 60s to avoid rate limiting)

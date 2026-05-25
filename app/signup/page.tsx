@@ -20,6 +20,10 @@ function SignupPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [step, setStep] = useState(1)
+  const [verifyPending, setVerifyPending] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [verifyMessage, setVerifyMessage] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -148,7 +152,50 @@ function SignupPageContent() {
         console.error('Failed to send account notification:', error_)
       }
 
-      router.push('/dashboard')
+      if (data.session) {
+        setLoading(false)
+        router.push('/dashboard')
+        return
+      }
+
+      await supabase.auth.signOut().catch(() => {})
+
+      try {
+        await fetch('/api/auth/resend-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: formData.email }),
+        })
+      } catch {
+        // Supabase may still send its own confirmation email
+      }
+
+      setRegisteredEmail(formData.email)
+      setVerifyPending(true)
+      setVerifyMessage(
+        'We sent a confirmation link to your email. Please verify your account before signing in.'
+      )
+    }
+    setLoading(false)
+  }
+
+  async function handleResendConfirmation() {
+    if (!registeredEmail) return
+    setResendLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: registeredEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to resend')
+      setVerifyMessage(data.message || 'Confirmation email sent again.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to resend email')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -163,6 +210,50 @@ function SignupPageContent() {
     }
     setError('')
     setStep(2)
+  }
+
+  if (verifyPending) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-purple-100 p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6">
+            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h1>
+          <p className="text-gray-600 text-sm mb-4">
+            Account created for <strong className="text-gray-900">{registeredEmail}</strong>.
+            Open the confirmation link in your inbox (check spam) before logging in.
+          </p>
+          {verifyMessage && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+              {verifyMessage}
+            </p>
+          )}
+          {error && (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              {error}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleResendConfirmation}
+            disabled={resendLoading}
+            className="w-full py-3 mb-3 rounded-lg border border-purple-300 text-purple-700 font-semibold hover:bg-purple-50 disabled:opacity-50"
+          >
+            {resendLoading ? 'Sending…' : 'Resend confirmation email'}
+          </button>
+          <Link
+            href="/login"
+            className="block w-full py-3 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
+          >
+            Go to login
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   // Show loading spinner while checking authentication

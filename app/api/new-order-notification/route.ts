@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
-import { getAdminEmail, isSmtpConfigured } from '@/lib/email/config'
-import { sendAppEmail } from '@/lib/email/send'
+import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
 import { notifyAllAdmins } from '@/lib/notifications/service'
 
 export async function POST(req: Request) {
@@ -39,28 +38,24 @@ export async function POST(req: Request) {
       message: `${clientName} placed "${orderTitle}"`,
     })
 
-    const adminEmail = getAdminEmail()
-    if (adminEmail && isSmtpConfigured()) {
-      try {
-        await sendAppEmail({
-          kind: 'admin_new_order',
-          to: adminEmail,
-          subject: `New order — ${orderTitle}`,
-          html: emailTemplates.newOrderNotificationAdmin(
-            clientName,
-            order.clients?.email || '',
-            orderTitle,
-            order.services?.title || 'N/A',
-            order.word_count,
-            order.deadline,
-            order.description,
-            order.requirements,
-            order.id
-          ),
-        })
-      } catch (emailErr) {
-        console.error('Admin new-order email failed:', emailErr)
-      }
+    const html = emailTemplates.newOrderNotificationAdmin(
+      clientName,
+      order.clients?.email || '',
+      orderTitle,
+      order.services?.title || 'N/A',
+      order.word_count,
+      order.deadline,
+      order.description,
+      order.requirements,
+      order.id
+    )
+    const emailResult = await sendEmailToAllAdmins({
+      kind: 'admin_new_order',
+      subject: `New order — ${orderTitle}`,
+      html,
+    })
+    if (emailResult.errors.length) {
+      console.error('Admin new-order email issues:', emailResult.errors)
     }
 
     return NextResponse.json({ success: true })
