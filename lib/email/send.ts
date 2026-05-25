@@ -33,12 +33,12 @@ export async function sendAppEmail(
     throw new Error('Missing to, subject, or body')
   }
   if (!isSmtpConfigured()) {
-    throw new Error('Email not configured (set BREVO_API_KEY or SMTP credentials)')
+    throw new Error('SMTP not configured: Set BREVO_API_KEY or SMTP/Gmail credentials in environment variables')
   }
 
   const fromEmail = getFromEmail()
   if (!fromEmail) {
-    throw new Error('BREVO_SENDER_EMAIL or SMTP_USER must be a verified Brevo sender')
+    throw new Error('BREVO_SENDER_EMAIL, SMTP_USER, or GMAIL_USER must be set in environment variables')
   }
 
   const senderName = fromName || getSenderName()
@@ -64,8 +64,15 @@ export async function sendAppEmail(
 
     const resText = await res.text()
     if (!res.ok) {
-      console.error(`[email] Brevo API error (${kind}):`, res.status, resText)
-      throw new Error(`Brevo rejected email: ${res.status}. Check sender ${fromEmail} is verified.`)
+      let errorDetail = resText
+      try {
+        const parsed = JSON.parse(resText) as { message?: string; detail?: string }
+        errorDetail = parsed.message || parsed.detail || resText
+      } catch {
+        /* use resText as is */
+      }
+      console.error(`[email] Brevo API error (${kind}):`, res.status, errorDetail)
+      throw new Error(`Brevo API ${res.status}: ${errorDetail}. Verify ${fromEmail} is a confirmed Brevo sender.`)
     }
 
     let messageId: string | undefined

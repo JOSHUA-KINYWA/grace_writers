@@ -63,13 +63,18 @@ export async function sendSignupConfirmationEmail(
     nextPath: '/dashboard',
   })
 
-  await sendAppEmail({
-    kind: 'auth_email_confirm',
-    to: email,
-    subject: 'Confirm your Grace Tutors account',
-    html: emailTemplates.emailVerification(confirmLink),
-    text: `Confirm your account: ${confirmLink}`,
-  })
-
-  return { sent: true }
+  try {
+    await sendAppEmail({
+      kind: 'auth_email_confirm',
+      to: email,
+      subject: 'Confirm your Grace Tutors account',
+      html: emailTemplates.emailVerification(confirmLink),
+      text: `Confirm your account: ${confirmLink}`,
+    })
+    return { sent: true }
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Email send failed'
+    console.error('[send-confirmation] sendAppEmail:', errorMsg)
+    return { sent: false, error: errorMsg }
+  }
 }

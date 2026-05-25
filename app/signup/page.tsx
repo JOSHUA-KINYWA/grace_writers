@@ -109,6 +109,9 @@ function SignupPageContent() {
       signupData.message ||
         'We sent a confirmation link to your email. Please verify your account before signing in.'
     )
+    if (signupData.confirmError) {
+      setError(`Email issue: ${signupData.confirmError}`)
+    }
     setLoading(false)
   }
 

@@ -82,7 +82,9 @@ export async function POST(req: Request) {
       email,
       password
     )
-
+    if (!sent && confirmError) {
+      console.error('[signup] confirmation email failed:', confirmError)
+    }
     return NextResponse.json({
       success: true,
       userId,
