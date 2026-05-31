@@ -20,6 +20,10 @@ interface ClientOrderDetailProps {
 export default function ClientOrderDetail({ order: initialOrder, clientId }: ClientOrderDetailProps) {
   const [order, setOrder] = useState(initialOrder)
   const [loading, setLoading] = useState(false)
+  const [paypalLoaded, setPaypalLoaded] = useState(false)
+  const [paypalError, setPaypalError] = useState<string | null>(null)
+  const [paypalProcessing, setPaypalProcessing] = useState(false)
+  const [paymentComplete, setPaymentComplete] = useState(false)
   const searchParams = useSearchParams()
   const selectedMessageId = searchParams?.get('messageId') ?? undefined
   const [showChat, setShowChat] = useState(Boolean(selectedMessageId))
@@ -32,6 +36,108 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   const [clientFileUrls, setClientFileUrls] = useState<string[]>([])
   const supabase = createClient()
   const router = useRouter()
+
+  const quoteAmount = Number(order.quote_amount ?? 0)
+  const paidAmount = Number(order.paid_amount ?? 0)
+  const outstandingAmount = Math.max(quoteAmount - paidAmount, 0)
+  const showPayPalSection = outstandingAmount > 0 && order.status !== 'cancelled'
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+
+  useEffect(() => {
+    if (!showPayPalSection) return
+
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    if (!clientId) {
+      setPaypalError('PayPal client ID is not configured.')
+      return
+    }
+
+    const scriptId = 'paypal-js'
+    const existing = document.getElementById(scriptId)
+    if (existing) {
+      setPaypalLoaded(true)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.id = scriptId
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD`
+    script.async = true
+    script.onload = () => setPaypalLoaded(true)
+    script.onerror = () => setPaypalError('Failed to load PayPal checkout.')
+    document.body.appendChild(script)
+  }, [showPayPalSection])
+
+  useEffect(() => {
+    if (!showPayPalSection || !paypalLoaded) return
+    if (typeof window === 'undefined') return
+
+    const container = document.getElementById('paypal-button-container')
+    if (!container || container.children.length > 0) return
+
+    const paypal = (window as any).paypal
+    if (!paypal) {
+      setPaypalError('PayPal checkout is unavailable.')
+      return
+    }
+
+    paypal.Buttons({
+      style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
+      createOrder: async () => {
+        setPaypalError(null)
+
+        const response = await fetch('/api/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: order.id }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data?.error || 'Unable to create PayPal order.')
+        }
+
+        return data.orderID
+      },
+      onApprove: async (data: any) => {
+        setPaypalProcessing(true)
+        setPaypalError(null)
+
+        try {
+          const response = await fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order.id, paypalOrderId: data.orderID }),
+          })
+
+          const responseData = await response.json()
+          if (!response.ok) {
+            throw new Error(responseData?.error || 'Failed to capture payment.')
+          }
+
+          setOrder({
+            ...order,
+            paid_amount: responseData.paidAmount,
+            payment_status: responseData.paymentStatus,
+          })
+          setPaymentComplete(true)
+          setPaypalProcessing(false)
+          setTimeout(() => setPaymentComplete(false), 4000)
+        } catch (err: any) {
+          setPaypalError(err?.message || 'Payment capture failed.')
+          setPaypalProcessing(false)
+        }
+      },
+      onError: (err: any) => {
+        setPaypalError(String(err || 'PayPal checkout error'))
+      },
+      onCancel: () => {
+        setPaypalError('PayPal payment was cancelled.')
+      },
+    }).render(container)
+  }, [showPayPalSection, paypalLoaded, order.id])
 
   // Extract timestamp from filename
   function getFileUploadTime(url: string): string {
@@ -419,6 +525,49 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                   </div>
                 </div>
 
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment summary</h2>
+                  <div className="space-y-3 text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Quote</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(quoteAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Paid</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(paidAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Outstanding</span>
+                      <span className="font-semibold text-slate-900">{formatCurrency(outstandingAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Status</span>
+                      <span className="font-semibold text-slate-900">{order.payment_status || 'pending'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {showPayPalSection && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-3">Pay with PayPal</h2>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Complete your payment securely for the remaining balance.
+                    </p>
+                    {paypalError && (
+                      <p className="text-sm text-red-600 mb-3">{paypalError}</p>
+                    )}
+                    {paymentComplete && (
+                      <p className="text-sm text-green-600 mb-3">Payment completed successfully.</p>
+                    )}
+                    <div id="paypal-button-container" className="w-full" />
+                    {!paypalLoaded && !paypalError && (
+                      <p className="text-sm text-slate-500 mt-3">Loading PayPal checkout...</p>
+                    )}
+                    {paypalProcessing && (
+                      <p className="text-sm text-slate-700 mt-3">Processing payment...</p>
+                    )}
+                  </div>
+                )}
               </aside>
             </div>
 
