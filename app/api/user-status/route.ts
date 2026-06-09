@@ -26,11 +26,17 @@ export async function POST(req: Request) {
         user_id: user.id,
         is_online: Boolean(is_online),
         last_seen: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
+      }
     )
 
-    if (error) throw error
+    if (error) {
+      const message = String(error?.message || error)
+      if (message.includes('relation "user_status" does not exist') || message.includes('table "user_status" does not exist')) {
+        console.warn('user-status: user_status table missing, skipping heartbeat update')
+        return NextResponse.json({ success: false, warning: 'user_status table missing' })
+      }
+      throw error
+    }
 
     return NextResponse.json({
       success: true,
@@ -39,7 +45,7 @@ export async function POST(req: Request) {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update status'
-    console.error('user-status POST error:', message)
+    console.error('user-status POST error:', message, error)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
@@ -66,7 +72,18 @@ export async function GET(req: Request) {
       .eq('user_id', userId)
       .maybeSingle()
 
-    if (error) throw error
+    if (error) {
+      const message = String(error?.message || error)
+      if (message.includes('relation "user_status" does not exist') || message.includes('table "user_status" does not exist')) {
+        console.warn('user-status: user_status table missing, returning offline status')
+        return NextResponse.json({
+          user_id: userId,
+          is_online: false,
+          last_seen: null,
+        })
+      }
+      throw error
+    }
 
     if (!data) {
       return NextResponse.json({

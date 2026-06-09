@@ -222,7 +222,7 @@ export async function GET(req: Request) {
     }
 
     if (isPublic) {
-      let query = service
+      const query = service
         .from('order_ratings')
         .select(
           'id, rating, review_comment, rating_type, client_display_name, admin_reply, admin_reply_at, created_at, order_id, order:orders(id, title, services:service_id(category, title))'

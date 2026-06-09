@@ -138,7 +138,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <h1 className="text-3xl font-bold mb-2 text-gray-900">Reset Password</h1>
-          <p className="text-gray-600 text-sm mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+          <p className="text-gray-600 text-sm mb-6">Enter your email address and we&apos;ll send you a link to reset your password.</p>
 
           {error && (
             <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
@@ -205,7 +205,7 @@ export default function ForgotPasswordPage() {
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-xs text-blue-700 flex items-start gap-2">
                 <span className="font-bold mt-0.5">ℹ️</span>
-                <span>For security reasons, password reset links expire in 1 hour. If you don't receive an email, check your spam folder.</span>
+                <span>For security reasons, password reset links expire in 1 hour. If you don&apos;t receive an email, check your spam folder.</span>
               </p>
             </div>
 
@@ -213,7 +213,7 @@ export default function ForgotPasswordPage() {
               <p className="text-xs text-yellow-800 flex items-start gap-2">
                 <span className="font-bold mt-0.5">⚠️</span>
                 <span>
-                  <strong>Rate Limiting:</strong> Supabase limits password reset requests to 1 per email per hour to protect your account. If you've already requested a reset, check your email or wait 1 hour before requesting another.
+                  <strong>Rate Limiting:</strong> Supabase limits password reset requests to 1 per email per hour to protect your account. If you&apos;ve already requested a reset, check your email or wait 1 hour before requesting another.
                 </span>
               </p>
             </div>
@@ -221,7 +221,7 @@ export default function ForgotPasswordPage() {
 
           {/* Sign up link */}
           <p className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-purple-700 hover:text-purple-800 font-bold transition">
               Sign up
             </Link>

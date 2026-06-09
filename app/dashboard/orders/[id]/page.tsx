@@ -32,7 +32,31 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const { data: order, error } = await supabase
     .from('orders')
     .select(`
-      *,
+      id,
+      client_id,
+      service_id,
+      status,
+      title,
+      description,
+      requirements,
+      word_count,
+      deadline,
+      quote_amount,
+      paid_amount,
+      payment_status,
+      paypal_order_id,
+      paypal_authorization_id,
+      authorized_amount,
+      approved_release_amount,
+      captured_amount,
+      escrow_status,
+      order_completion_date,
+      final_payment_released_at,
+      deliverables,
+      files_uploaded,
+      created_at,
+      updated_at,
+      completed_at,
       services:service_id (id, title, slug),
       clients:client_id (id, name, email, phone)
     `)

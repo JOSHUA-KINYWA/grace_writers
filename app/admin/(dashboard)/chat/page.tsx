@@ -30,15 +30,35 @@ export default async function AdminChatPage() {
     chatRooms = []
   }
 
-  // Get unread counts for each room
+  // Get unread counts for each room (only client messages should be treated as unread)
+  const clientIds = chatRooms
+    .map((room) => room.client_id)
+    .filter(Boolean) as string[]
+
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id, auth_user_id')
+    .in('id', clientIds)
+
+  const clientAuthById = new Map(
+    (clients || []).map((client: { id: string; auth_user_id: string | null }) => [client.id, client.auth_user_id])
+  )
+
   for (const room of chatRooms) {
     try {
+      const clientAuthId = room.client_id ? clientAuthById.get(room.client_id) : null
+      if (!clientAuthId) {
+        room.unread_count = 0
+        continue
+      }
+
       const { count } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('chat_room_id', room.id)
         .eq('replied', false)
-      
+        .eq('user_id', clientAuthId)
+
       room.unread_count = count || 0
     } catch (error) {
       room.unread_count = 0

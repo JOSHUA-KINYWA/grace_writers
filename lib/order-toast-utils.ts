@@ -143,7 +143,7 @@ export function notificationToToast(
   const orderTitle = order?.title || row.title || 'Order update'
 
   let badge: string | undefined
-  let tag = category
+  const tag = category
 
   switch (row.type) {
     case 'new_order':

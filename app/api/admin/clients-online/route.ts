@@ -66,7 +66,14 @@ export async function GET() {
       .select('user_id, is_online, last_seen')
       .in('user_id', uniqueAuthIds)
 
-    if (statusError) throw statusError
+    if (statusError) {
+      const message = String(statusError?.message || statusError)
+      if (message.includes('relation "user_status" does not exist') || message.includes('table "user_status" does not exist')) {
+        console.warn('admin/clients-online: user_status table missing, returning no online users')
+        return NextResponse.json({ onlineByClientId, onlineClients })
+      }
+      throw statusError
+    }
 
     const statusByUserId = new Map(
       (statuses || []).map((row) => [row.user_id, row])

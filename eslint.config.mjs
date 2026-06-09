@@ -18,8 +18,13 @@ const eslintConfig = defineConfig([
     "apply-migration.js",
     "check-and-create-table.js",
     "create-table.js",
+    "diagnose-smtp.js",
+    "disable-defender.js",
+    "scripts/*.js",
+    "test-*.js",
     "test-api.js",
     "test-table.js",
+    "test-supabase-connection.js",
   ]),
   // Disable strict any type checking for Supabase integration
   {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { nameFromUserMetadata } from '@/lib/utils/display-name'
 
 export async function resolveSenderNames(

@@ -31,12 +31,18 @@ export async function POST(req: Request) {
 
     const { data: clientRecord, error: clientError } = await supabase
       .from('clients')
-      .select('id, auth_user_id')
+      .select('id, auth_user_id, email')
       .eq('id', order.client_id)
       .maybeSingle()
 
     if (clientError) throw clientError
-    if (!clientRecord || clientRecord.auth_user_id !== user.id) {
+    const currentUserEmail = String(user.email || '').trim().toLowerCase()
+    const clientEmail = String(clientRecord?.email || '').trim().toLowerCase()
+    const clientMatchesUser =
+      clientRecord?.auth_user_id === user.id ||
+      (!clientRecord?.auth_user_id && clientEmail && currentUserEmail && clientEmail === currentUserEmail)
+
+    if (!clientRecord || !clientMatchesUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

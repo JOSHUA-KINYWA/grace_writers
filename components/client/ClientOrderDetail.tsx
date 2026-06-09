@@ -9,6 +9,9 @@ import OrderChatEnhanced from '@/components/OrderChatEnhanced'
 import OrderRating from '@/components/OrderRating'
 import ClientOrderLayout from '@/components/client/ClientOrderLayout'
 import OrderFilesTable, { type OrderFileLink } from '@/components/client/OrderFilesTable'
+import EscrowPaymentFlow from '@/components/EscrowPaymentFlow'
+import EscrowBalanceDisplay from '@/components/EscrowBalanceDisplay'
+import ReleasePaymentModal from '@/components/ReleasePaymentModal'
 import { formatDate, formatDateTime } from '@/lib/utils/formatDate'
 import { formatOrderId } from '@/lib/utils/formatOrderId'
 
@@ -20,10 +23,9 @@ interface ClientOrderDetailProps {
 export default function ClientOrderDetail({ order: initialOrder, clientId }: ClientOrderDetailProps) {
   const [order, setOrder] = useState(initialOrder)
   const [loading, setLoading] = useState(false)
-  const [paypalLoaded, setPaypalLoaded] = useState(false)
-  const [paypalError, setPaypalError] = useState<string | null>(null)
-  const [paypalProcessing, setPaypalProcessing] = useState(false)
   const [paymentComplete, setPaymentComplete] = useState(false)
+  const [paymentAuthorized, setPaymentAuthorized] = useState(false)
+  const [showReleaseModal, setShowReleaseModal] = useState(false)
   const searchParams = useSearchParams()
   const selectedMessageId = searchParams?.get('messageId') ?? undefined
   const [showChat, setShowChat] = useState(Boolean(selectedMessageId))
@@ -37,107 +39,46 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   const supabase = createClient()
   const router = useRouter()
 
+  function normalizeStatus(status: string) {
+    return status === 'delivered' ? 'completed' : status
+  }
+
   const quoteAmount = Number(order.quote_amount ?? 0)
   const paidAmount = Number(order.paid_amount ?? 0)
+  const authorizedAmount = Number(order.authorized_amount ?? 0)
+  const capturedAmount = Number(order.captured_amount ?? 0)
+  const escrowStatus = order.escrow_status ?? 'pending'
   const outstandingAmount = Math.max(quoteAmount - paidAmount, 0)
-  const showPayPalSection = outstandingAmount > 0 && order.status !== 'cancelled'
+  const normalizedStatus = normalizeStatus(order.status)
+  const canAuthorizePaymentStatuses = ['quote_sent', 'in_progress', 'completed']
+  const showPayPalButton =
+    outstandingAmount > 0 &&
+    canAuthorizePaymentStatuses.includes(normalizedStatus) &&
+    escrowStatus === 'pending'
+  const showEscrowBalance =
+    authorizedAmount > 0 &&
+    (escrowStatus === 'authorized' || escrowStatus === 'partial' || escrowStatus === 'released')
+  const showReleaseButton =
+    normalizedStatus === 'completed' &&
+    (escrowStatus === 'authorized' || escrowStatus === 'partial') &&
+    Boolean(order.paypal_authorization_id) &&
+    capturedAmount < authorizedAmount
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-  useEffect(() => {
-    if (!showPayPalSection) return
-
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-    if (!clientId) {
-      setPaypalError('PayPal client ID is not configured.')
-      return
-    }
-
-    const scriptId = 'paypal-js'
-    const existing = document.getElementById(scriptId)
-    if (existing) {
-      setPaypalLoaded(true)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.id = scriptId
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD`
-    script.async = true
-    script.onload = () => setPaypalLoaded(true)
-    script.onerror = () => setPaypalError('Failed to load PayPal checkout.')
-    document.body.appendChild(script)
-  }, [showPayPalSection])
-
-  useEffect(() => {
-    if (!showPayPalSection || !paypalLoaded) return
-    if (typeof window === 'undefined') return
-
-    const container = document.getElementById('paypal-button-container')
-    if (!container || container.children.length > 0) return
-
-    const paypal = (window as any).paypal
-    if (!paypal) {
-      setPaypalError('PayPal checkout is unavailable.')
-      return
-    }
-
-    paypal.Buttons({
-      style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
-      createOrder: async () => {
-        setPaypalError(null)
-
-        const response = await fetch('/api/paypal/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: order.id }),
-        })
-
-        const data = await response.json()
-        if (!response.ok) {
-          throw new Error(data?.error || 'Unable to create PayPal order.')
-        }
-
-        return data.orderID
-      },
-      onApprove: async (data: any) => {
-        setPaypalProcessing(true)
-        setPaypalError(null)
-
-        try {
-          const response = await fetch('/api/paypal/capture-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: order.id, paypalOrderId: data.orderID }),
-          })
-
-          const responseData = await response.json()
-          if (!response.ok) {
-            throw new Error(responseData?.error || 'Failed to capture payment.')
-          }
-
-          setOrder({
-            ...order,
-            paid_amount: responseData.paidAmount,
-            payment_status: responseData.paymentStatus,
-          })
-          setPaymentComplete(true)
-          setPaypalProcessing(false)
-          setTimeout(() => setPaymentComplete(false), 4000)
-        } catch (err: any) {
-          setPaypalError(err?.message || 'Payment capture failed.')
-          setPaypalProcessing(false)
-        }
-      },
-      onError: (err: any) => {
-        setPaypalError(String(err || 'PayPal checkout error'))
-      },
-      onCancel: () => {
-        setPaypalError('PayPal payment was cancelled.')
-      },
-    }).render(container)
-  }, [showPayPalSection, paypalLoaded, order.id])
+  async function handleReleasePaymentSuccess(data: any) {
+    setOrder({
+      ...order,
+      authorized_amount: data.authorizedAmount,
+      captured_amount: data.totalCaptured,
+      escrow_status: data.escrowStatus,
+      payment_status: data.paymentStatus,
+    })
+    setPaymentComplete(true)
+    setShowReleaseModal(false)
+    setTimeout(() => setPaymentComplete(false), 4000)
+  }
 
   // Extract timestamp from filename
   function getFileUploadTime(url: string): string {
@@ -167,8 +108,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     }
   }
 
-  const normalizeStatus = (status: string) =>
-    status === 'delivered' ? 'completed' : status
+  
 
   const getProgressPercent = (status: string) => {
     const s = normalizeStatus(status)
@@ -403,7 +343,6 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
   }
 
-  const normalizedStatus = normalizeStatus(order.status)
 
   // Allow revision requests for any order with deliverables
   const canRequestRevision = order.deliverables && order.deliverables.length > 0 && order.status !== 'cancelled'
@@ -448,8 +387,8 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
         <ClientOrderLayout revisionCount={revisions.length} orderStatus={order.status}>
           <div className="space-y-6">
             {/* Order Overview */}
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 xl:grid-cols-[1.6fr_0.9fr]">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.4fr_1fr] min-w-0">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 min-w-0">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 break-words">{order.title}</h1>
@@ -506,8 +445,8 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                 </div>
               </div>
 
-              <aside className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <aside className="space-y-6 min-w-0 w-full">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 min-w-0 w-full">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Project snapshot</h2>
                   <div className="space-y-3 text-sm text-slate-700">
                     <div className="flex items-center justify-between gap-2">
@@ -547,26 +486,43 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                   </div>
                 </div>
 
-                {showPayPalSection && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-3">Pay with PayPal</h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Complete your payment securely for the remaining balance.
-                    </p>
-                    {paypalError && (
-                      <p className="text-sm text-red-600 mb-3">{paypalError}</p>
-                    )}
-                    {paymentComplete && (
-                      <p className="text-sm text-green-600 mb-3">Payment completed successfully.</p>
-                    )}
-                    <div id="paypal-button-container" className="w-full" />
-                    {!paypalLoaded && !paypalError && (
-                      <p className="text-sm text-slate-500 mt-3">Loading PayPal checkout...</p>
-                    )}
-                    {paypalProcessing && (
-                      <p className="text-sm text-slate-700 mt-3">Processing payment...</p>
-                    )}
-                  </div>
+                {showPayPalButton && (
+                  <EscrowPaymentFlow
+                    orderId={order.id}
+                    quoteAmount={outstandingAmount}
+                    clientId={clientId}
+                    onPaymentAuthorized={(data) => {
+                      setOrder({
+                        ...order,
+                        payment_status: data.paymentStatus,
+                        paypal_order_id: data.paypalOrderId,
+                        paypal_authorization_id: data.authorizationId,
+                        authorized_amount: data.authorizedAmount,
+                        escrow_status: data.escrowStatus,
+                      })
+                      setPaymentAuthorized(true)
+                      setTimeout(() => setPaymentAuthorized(false), 3000)
+                    }}
+                  />
+                )}
+
+                {showEscrowBalance && (
+                  <EscrowBalanceDisplay
+                    authorizedAmount={authorizedAmount}
+                    capturedAmount={capturedAmount}
+                    approvedReleaseAmount={Number(order.approved_release_amount ?? 0)}
+                    escrowStatus={escrowStatus}
+                    compact={false}
+                  />
+                )}
+
+                {showReleaseButton && (
+                  <button
+                    onClick={() => setShowReleaseModal(true)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                  >
+                    Approve & Release Payment
+                  </button>
                 )}
               </aside>
             </div>
@@ -592,10 +548,18 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
             </div>
 
             {/* ACTION BUTTONS - PROMINENT SECTION */}
-            {(normalizedStatus === 'completed' || normalizedStatus === 'revision') && (
+            {(normalizedStatus === 'completed' || normalizedStatus === 'revision' || showReleaseButton) && (
               <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-lg border-2 border-purple-300 p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">✨ What&apos;s Next?</h2>
                 <div className="grid md:grid-cols-2 gap-4">
+                  {showReleaseButton && (
+                    <button
+                      onClick={() => setShowReleaseModal(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg font-bold transition flex items-center justify-center gap-2 text-lg"
+                    >
+                      💰 Release Payment from Escrow
+                    </button>
+                  )}
                   {canRequestRevision && (
                     <button
                       onClick={() => {
@@ -744,6 +708,17 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
           </div>
         </ClientOrderLayout>
       </div>
+
+      {/* Release Payment Modal */}
+      <ReleasePaymentModal
+        isOpen={showReleaseModal}
+        orderId={order.id}
+        authorizationId={order.paypal_authorization_id || ''}
+        authorizedAmount={authorizedAmount}
+        capturedAmount={capturedAmount}
+        onClose={() => setShowReleaseModal(false)}
+        onSuccess={handleReleasePaymentSuccess}
+      />
     </div>
   )
 }

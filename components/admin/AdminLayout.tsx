@@ -16,6 +16,7 @@ import {
   FaBox,
   FaGift,
   FaComments,
+  FaLink,
   FaStar,
 } from 'react-icons/fa'
 import LogoutButton from './LogoutButton'
@@ -23,6 +24,7 @@ import AdminOnlineAlerts from './AdminOnlineAlerts'
 import AdminPresenceHeartbeat from '@/components/AdminPresenceHeartbeat'
 import DashboardHeaderUser from '@/components/DashboardHeaderUser'
 import AdminHeaderAlerts from '@/components/admin/AdminHeaderAlerts'
+import EscrowBalanceNavBadge from '@/components/EscrowBalanceNavBadge'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 import { useUnreadLiveChatCount } from '@/hooks/useUnreadLiveChatCount'
 
@@ -89,6 +91,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { icon: FaComments, label: 'Live Chat', href: '/admin/chat', badge: 'livechat' },
     { icon: FaGift, label: 'Referrals', href: '/admin/referrals' },
     { icon: FaChartBar, label: 'Analytics', href: '/admin/analytics' },
+    { icon: FaFileAlt, label: 'PayPal Reports', href: '/admin/reports', highlight: true },
+    { icon: FaLink, label: 'Payment Links', href: '/admin/payment-links', highlight: true },
     { icon: FaFileAlt, label: 'Inquiries', href: '/admin/inquiries' },
     { icon: FaBox, label: 'Work Samples', href: '/admin/portfolio' },
     { icon: FaCog, label: 'Settings', href: '/admin/settings' },
@@ -184,6 +188,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <h2 className="text-lg md:text-2xl font-bold text-slate-900 truncate">Admin Panel</h2>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <EscrowBalanceNavBadge compact={isMobile} />
             <Link
               href="/admin/ratings"
               className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 text-white px-3 py-2 text-sm font-semibold hover:bg-amber-600 transition"

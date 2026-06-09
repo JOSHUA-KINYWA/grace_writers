@@ -285,7 +285,8 @@ export async function POST(req: Request) {
         channel_id: channelData.id,
         user_id: user.id,
         chat_room_id: chatRoomId,
-        replied: false,
+        replied: isAdmin,
+        replied_at: isAdmin ? new Date().toISOString() : null,
       })
       .select('*')
       .single()

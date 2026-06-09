@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export function useUnreadMessageCount(role: 'admin' | 'client', pollMs = 5000) {
+export function useUnreadMessageCount(role: 'admin' | 'client', pollMs = 15000) {
   const [count, setCount] = useState(0)
   const [pulse, setPulse] = useState(false)
   const supabase = useMemo(() => createClient(), [])

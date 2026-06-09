@@ -40,13 +40,37 @@ export async function GET() {
 
     if (error) throw error
 
+    const clientIds = (rooms || [])
+      .map((room: { client_id?: string | null }) => room.client_id)
+      .filter(Boolean) as string[]
+
+    const { data: clients } = await service
+      .from('clients')
+      .select('id, auth_user_id')
+      .in('id', clientIds)
+
+    const clientAuthById = new Map(
+      (clients || []).map((c: { id: string; auth_user_id: string | null }) => [c.id, c.auth_user_id])
+    )
+
     const withCounts = await Promise.all(
-      (rooms || []).map(async (room: { id: string }) => {
+      (rooms || []).map(async (room: { id: string; client_id?: string | null }) => {
+        const clientAuthId = room.client_id ? clientAuthById.get(room.client_id) : null
+        if (!clientAuthId) {
+          return {
+            ...room,
+            status: roomStatusFromRow(room as { status?: string; room_name?: string }),
+            unread_count: 0,
+          }
+        }
+
         const { count } = await service
           .from('messages')
           .select('*', { count: 'exact', head: true })
           .eq('chat_room_id', room.id)
           .eq('replied', false)
+          .eq('user_id', clientAuthId)
+
         return {
           ...room,
           status: roomStatusFromRow(room as { status?: string; room_name?: string }),

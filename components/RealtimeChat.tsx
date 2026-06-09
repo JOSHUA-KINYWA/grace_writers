@@ -110,23 +110,50 @@ export default function RealtimeChat({
     [persistSeen]
   )
 
+  const parseJsonResponse = useCallback(async (res: Response) => {
+    try {
+      return await res.json()
+    } catch {
+      const text = await res.text()
+      return { error: text || `HTTP ${res.status}` }
+    }
+  }, [])
+
+  const getApiErrorMessage = useCallback((data: unknown, fallback: string) => {
+    if (!data) return fallback
+    if (typeof data === 'string') return data
+    if (typeof data === 'object' && data !== null) {
+      const maybeError = (data as any).error
+      if (typeof maybeError === 'string') return maybeError
+      if (typeof maybeError !== 'undefined') return JSON.stringify(maybeError)
+      return JSON.stringify(data)
+    }
+    return fallback
+  }, [])
+
   const loadMessages = useCallback(
     async (roomId?: string | null) => {
       try {
         const url = roomId
           ? `/api/live-chat/messages?chatRoomId=${encodeURIComponent(roomId)}`
           : '/api/live-chat/messages'
-        let res = await fetch(url, { cache: 'no-store' })
-        let data = await res.json()
+        let res = await fetch(url, { cache: 'no-store', credentials: 'include' })
+        let data = await parseJsonResponse(res)
 
         if (!res.ok && res.status === 403 && roomId) {
           chatRoomIdRef.current = null
           setChatRoomId(null)
-          res = await fetch('/api/live-chat/messages', { cache: 'no-store' })
-          data = await res.json()
+          res = await fetch('/api/live-chat/messages', { cache: 'no-store', credentials: 'include' })
+          data = await parseJsonResponse(res)
         }
 
-        if (!res.ok) throw new Error(data.error || 'Failed to load messages')
+        if (!res.ok) {
+          if (res.status === 401) {
+            console.warn('Live chat load unauthorized: user session is invalid or expired.')
+            return
+          }
+          throw new Error(getApiErrorMessage(data, 'Failed to load messages'))
+        }
 
         const resolvedRoomId = data.chatRoomId as string | undefined
         if (resolvedRoomId) {
@@ -241,11 +268,12 @@ export default function RealtimeChat({
     try {
       const res = await fetch('/api/live-chat/rooms', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'new', chatRoomId }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to start new chat')
+      const data = await parseJsonResponse(res)
+      if (!res.ok) throw new Error(getApiErrorMessage(data, 'Failed to start new chat'))
       setChatRoomId(data.chatRoomId)
       chatRoomIdRef.current = data.chatRoomId
       setRoomStatus('open')
@@ -268,11 +296,12 @@ export default function RealtimeChat({
     try {
       const res = await fetch('/api/live-chat/rooms', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'close', chatRoomId }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to close')
+      const data = await parseJsonResponse(res)
+      if (!res.ok) throw new Error(getApiErrorMessage(data, 'Failed to close'))
       setRoomStatus('closed')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to close chat')
@@ -298,11 +327,12 @@ export default function RealtimeChat({
     try {
       const res = await fetch('/api/live-chat/messages', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: text, chatRoomId }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to send')
+      const data = await parseJsonResponse(res)
+      if (!res.ok) throw new Error(getApiErrorMessage(data, 'Failed to send'))
 
       const roomId = data.chatRoomId || chatRoomId
       if (roomId) {

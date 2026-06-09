@@ -21,6 +21,7 @@ import { getUrgentWhatsAppHref } from '@/lib/support-contact'
 import MessageNavBadge from '@/components/MessageNavBadge'
 import DashboardHeaderUser from '@/components/DashboardHeaderUser'
 import UrgentWhatsAppNavButton from '@/components/UrgentWhatsAppNavButton'
+import EscrowBalanceNavBadge from '@/components/EscrowBalanceNavBadge'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 
 interface DashboardLayoutProps {
@@ -66,10 +67,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  useEffect(() => {
-    if (isMobile) setSidebarOpen(false)
-  }, [pathname, isMobile])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -209,6 +206,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <p className="hidden md:block text-xs text-slate-500 mt-1">Manage your orders and projects</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <EscrowBalanceNavBadge compact={isMobile} />
             <UrgentWhatsAppNavButton compact={isMobile} />
             <MessageNavBadge
               role="client"

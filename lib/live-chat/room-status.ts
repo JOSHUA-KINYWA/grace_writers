@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 const CLOSED_MARKER = '-closed-'
 
 let statusColumnAvailable: boolean | null = null

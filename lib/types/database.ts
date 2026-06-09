@@ -148,6 +148,11 @@ export interface Database {
           title: string | null
           description: string | null
           status: string | null
+          quote_amount: number | null
+          paid_amount: number | null
+          payment_status: string | null
+          paypal_order_id: string | null
+          paypal_authorization_id: string | null
           total_revisions_requested: number | null
           current_revision_number: number | null
           created_at: string | null

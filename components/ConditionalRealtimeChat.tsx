@@ -9,14 +9,28 @@ export default function ConditionalRealtimeChat() {
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
   const [isAdminUser, setIsAdminUser] = useState(false)
+  const [authState, setAuthState] = useState<'pending' | 'authenticated' | 'unauthenticated'>('pending')
 
   useEffect(() => {
     let active = true
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active) return
-      const role = data?.user?.user_metadata?.role
-      setIsAdminUser(role === 'admin')
-    }).catch(() => {})
+    supabase
+      .auth
+      .getUser()
+      .then(({ data }) => {
+        if (!active) return
+        const user = data?.user
+        if (!user) {
+          setAuthState('unauthenticated')
+          return
+        }
+        const role = user.user_metadata?.role
+        setIsAdminUser(role === 'admin')
+        setAuthState('authenticated')
+      })
+      .catch(() => {
+        if (active) setAuthState('unauthenticated')
+      })
+
     return () => {
       active = false
     }
@@ -28,7 +42,7 @@ export default function ConditionalRealtimeChat() {
     pathname === '/signup' ||
     pathname === '/admin/login'
 
-  if (isAdminPath || isAuthPath || isAdminUser) {
+  if (authState !== 'authenticated' || isAdminPath || isAuthPath || isAdminUser) {
     return null
   }
 
