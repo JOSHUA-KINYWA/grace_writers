@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getCachedAuthUser } from '@/lib/auth/client-session'
 
 const HEARTBEAT_MS = 25 * 1000
 
@@ -10,7 +9,6 @@ const HEARTBEAT_MS = 25 * 1000
 export default function PresenceHeartbeat() {
   useEffect(() => {
     const supabase = createClient()
-    let active = true
     let userId: string | null = null
 
     async function ping(isOnline = true) {
@@ -26,20 +24,34 @@ export default function PresenceHeartbeat() {
       }
     }
 
-    async function init() {
-      const user = await getCachedAuthUser(supabase)
-      if (!active || !user) return
-      userId = user.id
-      if (user.app_metadata?.role !== 'admin') {
-        fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
-      }
-      await ping(true)
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      queueMicrotask(() => {
+        if (event === 'SIGNED_OUT') {
+          void ping(false)
+          userId = null
+          return
+        }
+        if (!session?.user) return
+        userId = session.user.id
+        if (session.user.app_metadata?.role !== 'admin') {
+          fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
+        }
+        void ping(true)
+      })
+    })
 
-    void init()
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        userId = user.id
+        if (user.app_metadata?.role !== 'admin') {
+          fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
+        }
+        void ping(true)
+      }
+    })
 
     const interval = setInterval(() => {
-      void ping(true)
+      if (document.visibilityState === 'visible') void ping(true)
     }, HEARTBEAT_MS)
 
     const onVisible = () => {
@@ -56,8 +68,8 @@ export default function PresenceHeartbeat() {
     window.addEventListener('beforeunload', onUnload)
 
     return () => {
-      active = false
       clearInterval(interval)
+      subscription.unsubscribe()
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('beforeunload', onUnload)
     }

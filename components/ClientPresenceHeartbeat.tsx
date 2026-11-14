@@ -11,12 +11,26 @@ export default function ClientPresenceHeartbeat() {
 
   useEffect(() => {
     const supabase = createClient()
-    getCachedAuthUser(supabase).then((user) => {
-      if (user && user.app_metadata?.role !== 'admin') {
-        setEnabled(true)
-        fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
-      }
+    let active = true
+    const enableForUser = (user: { app_metadata?: Record<string, unknown> } | null) => {
+      const shouldEnable = Boolean(user && user.app_metadata?.role !== 'admin')
+      setEnabled(shouldEnable)
+      if (shouldEnable) fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      queueMicrotask(() => {
+        if (active) enableForUser(session?.user || null)
+      })
     })
+    void getCachedAuthUser(supabase).then((user) => {
+      if (active) enableForUser(user)
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   if (!enabled) return null
