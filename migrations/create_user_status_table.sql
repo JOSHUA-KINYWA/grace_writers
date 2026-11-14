@@ -24,8 +24,8 @@ CREATE POLICY "Users can read user status" ON user_status
 -- Policy: Users can update their own status or admins can update any
 CREATE POLICY "Users can update own status" ON user_status
   FOR UPDATE
-  USING (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
-  WITH CHECK (auth.uid() = user_id OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+  USING (auth.uid() = user_id OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  WITH CHECK (auth.uid() = user_id OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 -- Policy: Users can insert their own status
 CREATE POLICY "Users can insert own status" ON user_status

@@ -58,14 +58,14 @@ export default function Navbar() {
     getCachedAuthUser(supabase).then((user) => {
       if (user) {
         setUser(user)
-        setUserRole(user.user_metadata?.role || 'client')
+        setUserRole(user.app_metadata?.role || 'client')
       }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session?.user) {
         setUser(session.user)
-        setUserRole(session.user.user_metadata?.role || 'client')
+        setUserRole(session.user.app_metadata?.role || 'client')
       } else {
         setUser(null)
         setUserRole(null)

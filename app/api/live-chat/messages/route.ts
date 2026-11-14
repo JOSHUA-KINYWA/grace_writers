@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
@@ -23,7 +24,7 @@ async function getOrCreateRoomForUser(
   service: ReturnType<typeof createSupabaseService> & { from: (t: string) => any },
   user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }
 ) {
-  const isAdmin = user.user_metadata?.role === 'admin'
+  const isAdmin = isAdminUser(user)
 
   if (isAdmin) {
     return { error: 'Admins must specify chatRoomId', room: null as null }
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
     let roomId = chatRoomId
     let roomStatus = 'open'
 
-    if (user.user_metadata?.role !== 'admin') {
+    if (!isAdminUser(user)) {
       const clientId = await resolveClientIdForUser(service, user)
       if (!clientId) {
         return NextResponse.json({ error: 'Client profile not found' }, { status: 404 })
@@ -93,7 +94,7 @@ export async function GET(req: Request) {
     }
 
     // Mark client messages as read for admin when the chat room is loaded
-    if (user.user_metadata?.role === 'admin' && roomId) {
+    if (isAdminUser(user) && roomId) {
       const { error: markError } = await service
         .from('messages')
         .update({ replied: true, replied_at: new Date().toISOString() })
@@ -149,7 +150,7 @@ export async function PATCH(req: Request) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -204,7 +205,7 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     ) as any
 
-    if (!chatRoomId && user.user_metadata?.role !== 'admin') {
+    if (!chatRoomId && !isAdminUser(user)) {
       const { error, room } = await getOrCreateRoomForUser(service, user)
       if (error || !room) {
         return NextResponse.json({ error: error || 'No chat room' }, { status: 400 })
@@ -216,7 +217,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing chatRoomId' }, { status: 400 })
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
 
     if (!isAdmin) {
       const clientId = await resolveClientIdForUser(service, user)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createPayPalOrder, buildPayPalCardPaymentSource, PayPalCardVerificationMethod } from '@/lib/paypal'
+import { getAppUrl } from '@/lib/app-url'
 
 export async function POST(req: Request) {
   try {
@@ -52,16 +53,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nothing to pay' }, { status: 400 })
     }
 
-    const returnUrl = String(body?.returnUrl || '').trim() || undefined
-    const cancelUrl = String(body?.cancelUrl || '').trim() || undefined
+    const appOrigin = new URL(getAppUrl()).origin
+    const validateRedirect = (value: unknown) => {
+      if (!value) return undefined
+      const parsed = new URL(String(value))
+      if (parsed.origin !== appOrigin) throw new Error('PayPal return and cancel URLs must belong to this application')
+      return parsed.toString()
+    }
+    const returnUrl = validateRedirect(body?.returnUrl)
+    const cancelUrl = validateRedirect(body?.cancelUrl)
     const paymentSource = body?.paymentSource
     const enable3DS = Boolean(body?.enable3DS)
     const scaMethod = String(body?.scaMethod || 'SCA_WHEN_REQUIRED').toUpperCase() as PayPalCardVerificationMethod
     const paymentSourceType = String(body?.paymentSourceType || '').trim().toLowerCase()
     const riskData = body?.riskData
-    const purchaseUnit = body?.purchaseUnit
-    const applicationContext = body?.applicationContext
     const intent = String(body?.intent || 'AUTHORIZE').toUpperCase() as 'AUTHORIZE' | 'CAPTURE'
+    if (intent !== 'AUTHORIZE' && intent !== 'CAPTURE') {
+      return NextResponse.json({ error: 'Invalid payment intent' }, { status: 400 })
+    }
 
     let paymentSourcePayload = paymentSource
     if (!paymentSourcePayload && enable3DS && paymentSourceType === 'card') {
@@ -81,16 +90,12 @@ export async function POST(req: Request) {
       intent,
       paymentSource: paymentSourcePayload ?? undefined,
       riskData: riskData ? riskData : undefined,
-      purchaseUnit: purchaseUnit ? purchaseUnit : undefined,
-      applicationContext: applicationContext ? applicationContext : undefined,
     })
-    await supabase
+    const { error: updateError } = await supabase
       .from('orders')
       .update({ paypal_order_id: payPalOrder.id })
       .eq('id', orderId)
-      .then(({ error: updateError }) => {
-        if (updateError) throw updateError
-      })
+    if (updateError) throw updateError
 
     const approveUrl = Array.isArray(payPalOrder.links)
       ? payPalOrder.links.find((link: any) => link.rel === 'approve')?.href || ''

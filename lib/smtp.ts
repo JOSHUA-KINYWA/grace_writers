@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import type { TransportOptions } from 'nodemailer'
 
 export function createSmtpTransport() {
   const useBrevoRelay = Boolean(process.env.BREVO_SMTP_HOST)
@@ -25,7 +26,7 @@ export function createSmtpTransport() {
     ? process.env.BREVO_SMTP_PASS || process.env.BREVO_API_KEY
     : process.env.SMTP_PASS || process.env.GMAIL_PASS
 
-  const transportOptions: nodemailer.TransportOptions & {
+  const transportOptions: TransportOptions & {
     host: string
     port: number
     secure: boolean

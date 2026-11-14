@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { getAdminEmail, isSmtpConfigured } from '@/lib/email/config'
 import { sendAppEmail, type SendAppEmailInput } from '@/lib/email/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
@@ -18,7 +19,7 @@ export async function getAllAdminEmails(): Promise<string[]> {
   const service = getService()
   const { data } = await service.auth.admin.listUsers({ perPage: 1000 })
   for (const user of data?.users || []) {
-    if (user.user_metadata?.role === 'admin' && user.email) {
+    if (isAdminUser(user) && user.email) {
       emails.add(user.email.trim().toLowerCase())
     }
   }

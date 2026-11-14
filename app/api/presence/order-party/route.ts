@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ isOnline: false, label: 'Unknown' })
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
     let targetUserIds: string[] = []
 
     if (isAdmin) {
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
     } else {
       const { data: authData } = await service.auth.admin.listUsers({ perPage: 1000 })
       for (const authUser of authData?.users || []) {
-        if (authUser.user_metadata?.role === 'admin') {
+        if (isAdminUser(authUser)) {
           targetUserIds.push(authUser.id)
         }
       }

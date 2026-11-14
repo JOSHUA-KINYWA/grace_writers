@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isSmtpConfigured, getFromEmail, getSenderName } from '@/lib/email/config'
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
     // Check admin authorization
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

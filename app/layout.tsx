@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import ConditionalRealtimeChat from "@/components/ConditionalRealtimeChat";
@@ -8,11 +7,6 @@ import SessionToasts from "@/components/SessionToasts";
 import ActionToastStack from "@/components/ActionToastStack";
 import AuthHashRedirect from "@/components/AuthHashRedirect";
 import { ReactNode, Suspense } from "react";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   title: "Grace Writers - Professional Writing Services",
@@ -25,7 +19,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
         <Suspense fallback={null}>
           <AuthHashRedirect />

@@ -26,7 +26,7 @@ CREATE POLICY "Admins can read quick replies" ON quick_replies
   USING (
     admin_id = auth.uid()
     OR is_global = true
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 -- RLS Policy: Admins can create quick replies
@@ -34,7 +34,7 @@ CREATE POLICY "Admins can create quick replies" ON quick_replies
   FOR INSERT
   WITH CHECK (
     auth.uid() = admin_id
-    AND (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    AND (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 -- RLS Policy: Admins can update their own quick replies

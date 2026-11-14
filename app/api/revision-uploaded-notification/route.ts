@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
     if (!isAdmin) {
       const service = createSupabaseService(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,

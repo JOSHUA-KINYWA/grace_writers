@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { FaSave, FaTrash, FaArrowLeft } from 'react-icons/fa'
 
 interface TestimonialEditProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default function TestimonialEditPage({ params }: TestimonialEditProps) {
+  const { id } = use(params)
   const router = useRouter()
-  const isNew = params.id === 'new'
+  const isNew = id === 'new'
   const [testimonial, setTestimonial] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,12 +49,12 @@ export default function TestimonialEditPage({ params }: TestimonialEditProps) {
       }
       setLoading(false)
     }
-  }, [params.id])
+  }, [id])
 
   async function fetchTestimonial() {
     try {
       setLoading(true)
-      const res = await fetch(`/api/testimonials?id=${params.id}`)
+      const res = await fetch(`/api/testimonials?id=${id}`)
       if (!res.ok) throw new Error('Failed to fetch testimonial')
       const data = await res.json()
       setTestimonial(data)
@@ -82,7 +83,7 @@ export default function TestimonialEditPage({ params }: TestimonialEditProps) {
         res = await fetch('/api/testimonials', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: params.id, ...formData })
+          body: JSON.stringify({ id, ...formData })
         })
       }
 
@@ -108,7 +109,7 @@ export default function TestimonialEditPage({ params }: TestimonialEditProps) {
       setDeleting(true)
       setError('')
 
-      const res = await fetch(`/api/testimonials?id=${params.id}`, {
+      const res = await fetch(`/api/testimonials?id=${id}`, {
         method: 'DELETE'
       })
 

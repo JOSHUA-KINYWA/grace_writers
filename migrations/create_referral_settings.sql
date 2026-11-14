@@ -14,11 +14,11 @@ alter table referral_settings enable row level security;
 drop policy if exists "Referral settings readable by admins" on referral_settings;
 create policy "Referral settings readable by admins" on referral_settings
   for select
-  using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 drop policy if exists "Referral settings writable by admins" on referral_settings;
 create policy "Referral settings writable by admins" on referral_settings
   for all
-  using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
-  with check ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 

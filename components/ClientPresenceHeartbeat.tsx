@@ -12,7 +12,7 @@ export default function ClientPresenceHeartbeat() {
   useEffect(() => {
     const supabase = createClient()
     getCachedAuthUser(supabase).then((user) => {
-      if (user && user.user_metadata?.role !== 'admin') {
+      if (user && user.app_metadata?.role !== 'admin') {
         setEnabled(true)
         fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
       }

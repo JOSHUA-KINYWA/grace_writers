@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { deletePayPalPaymentLink, getPayPalPaymentLink, updatePayPalPaymentLink } from '@/lib/paypal'
@@ -8,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ paymentR
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -32,7 +33,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ paymentR
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -62,7 +63,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ payme
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

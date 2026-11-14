@@ -22,7 +22,7 @@ CREATE POLICY "Clients can view their order ratings" ON order_ratings
       SELECT 1 FROM orders o
       INNER JOIN clients c ON o.client_id = c.id
       WHERE o.id = order_ratings.order_id
-      AND (c.auth_user_id = auth.uid() OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
+      AND (c.auth_user_id = auth.uid() OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
     )
   );
 
@@ -50,4 +50,4 @@ CREATE POLICY "Clients can update their own ratings" ON order_ratings
 
 DROP POLICY IF EXISTS "Admins can manage ratings" ON order_ratings;
 CREATE POLICY "Admins can manage ratings" ON order_ratings
-  FOR ALL USING ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin');
+  FOR ALL USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');

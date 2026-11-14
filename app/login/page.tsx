@@ -30,7 +30,7 @@ export default function LoginPage() {
             .eq('auth_user_id', user.id)
             .single()
 
-          const userRole = user.user_metadata?.role || 'client'
+          const userRole = user.app_metadata?.role || 'client'
           const dest = userRole === 'admin' ? '/admin' : '/dashboard'
           window.location.replace(dest)
           return
@@ -78,7 +78,7 @@ export default function LoginPage() {
 
       // Fallback: redirect based on role
       const { data: userData } = await supabase.auth.getUser()
-      const role = userData.user?.user_metadata?.role
+      const role = userData.user?.app_metadata?.role
       if (role === 'admin') {
         router.push('/admin')
       } else {

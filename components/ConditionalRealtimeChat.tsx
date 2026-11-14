@@ -23,7 +23,7 @@ export default function ConditionalRealtimeChat() {
           setAuthState('unauthenticated')
           return
         }
-        const role = user.user_metadata?.role
+        const role = user.app_metadata?.role
         setIsAdminUser(role === 'admin')
         setAuthState('authenticated')
       })

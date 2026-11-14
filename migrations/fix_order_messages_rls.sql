@@ -11,7 +11,7 @@ CREATE POLICY "Users can read order messages" ON order_messages
   FOR SELECT
   USING (
     -- User is admin
-    (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+    (auth.jwt() ->> 'app_metadata')::jsonb ->> 'role' = 'admin'
     -- OR user is the sender
     OR auth.uid() = sender_id
     -- OR user is the client who placed the order
@@ -30,7 +30,7 @@ CREATE POLICY "Users can insert order messages" ON order_messages
     auth.uid() = sender_id
     AND (
       -- User is admin
-      (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+      (auth.jwt() ->> 'app_metadata')::jsonb ->> 'role' = 'admin'
       -- OR user is the client for this order
       OR EXISTS (
         SELECT 1 FROM orders o
@@ -45,7 +45,7 @@ CREATE POLICY "Users can insert order messages" ON order_messages
 CREATE POLICY "Admins can delete order messages" ON order_messages
   FOR DELETE
   USING (
-    (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+    (auth.jwt() ->> 'app_metadata')::jsonb ->> 'role' = 'admin'
   );
 
 -- RLS Policy: Users can update read status of their own messages or if admin
@@ -53,7 +53,7 @@ CREATE POLICY "Users can update order messages read status" ON order_messages
   FOR UPDATE
   USING (
     -- User is admin
-    (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+    (auth.jwt() ->> 'app_metadata')::jsonb ->> 'role' = 'admin'
     -- OR user is the sender
     OR auth.uid() = sender_id
     -- OR user is the client receiving the message

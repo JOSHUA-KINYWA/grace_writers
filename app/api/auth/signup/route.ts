@@ -65,10 +65,13 @@ export async function POST(req: Request) {
 
     if (clientError) {
       console.error('[signup] client insert:', clientError.message)
+      const { error: rollbackError } = await service.auth.admin.deleteUser(userId)
+      if (rollbackError) console.error('[signup] auth rollback failed:', rollbackError.message)
+      return NextResponse.json({ error: 'Could not finish creating your account. Please try again.' }, { status: 500 })
     }
 
     if (clientRow?.id) {
-      await service.auth.admin.updateUserById(userId, {
+      const { error: metadataError } = await service.auth.admin.updateUserById(userId, {
         user_metadata: {
           name,
           phone,
@@ -76,6 +79,14 @@ export async function POST(req: Request) {
           client_id: clientRow.id,
         },
       })
+      if (metadataError) {
+        console.error('[signup] metadata update:', metadataError.message)
+        const { error: clientRollbackError } = await service.from('clients').delete().eq('id', clientRow.id)
+        const { error: authRollbackError } = await service.auth.admin.deleteUser(userId)
+        if (clientRollbackError) console.error('[signup] client rollback failed:', clientRollbackError.message)
+        if (authRollbackError) console.error('[signup] auth rollback failed:', authRollbackError.message)
+        return NextResponse.json({ error: 'Could not finish creating your account. Please try again.' }, { status: 500 })
+      }
     }
 
     const { sent, error: confirmError } = await sendSignupConfirmationEmail(

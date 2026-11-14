@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ClientOrderDetail from '@/components/client/ClientOrderDetail'
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // In some Next.js dev environments `params` may be a Promise — unwrap it safely
   const { id } = (await params) as { id: string }
   const supabase: any = await createClient()

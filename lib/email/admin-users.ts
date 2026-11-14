@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 function getService() {
@@ -12,7 +13,7 @@ export async function getAdminAuthUserIds(): Promise<string[]> {
   const { data } = await service.auth.admin.listUsers({ perPage: 1000 })
   const ids: string[] = []
   for (const user of data?.users || []) {
-    if (user.user_metadata?.role === 'admin') {
+    if (isAdminUser(user)) {
       ids.push(user.id)
     }
   }
@@ -49,7 +50,7 @@ export async function getPrimaryAdminEmail(): Promise<string | null> {
   const service = getService()
   const { data } = await service.auth.admin.listUsers({ perPage: 1000 })
   for (const user of data?.users || []) {
-    if (user.user_metadata?.role === 'admin' && user.email) {
+    if (isAdminUser(user) && user.email) {
       return user.email
     }
   }

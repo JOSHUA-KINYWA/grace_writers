@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -49,7 +50,7 @@ export default async function AdminMessagesPage({ searchParams }: Readonly<Admin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     redirect('/admin/login')
   }
 

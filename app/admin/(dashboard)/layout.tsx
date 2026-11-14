@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminLayout from '@/components/admin/AdminLayout'
+import { isAdminUser } from '@/lib/auth/admin'
 
 export const metadata = {
   title: 'Admin Dashboard',
@@ -17,8 +18,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
     redirect('/admin/login')
   }
 
-  const role = user.user_metadata?.role
-  if (role !== 'admin') {
+  if (!isAdminUser(user)) {
     redirect('/admin/login')
   }
 

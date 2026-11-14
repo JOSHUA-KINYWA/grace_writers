@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
     const client = Array.isArray(order.clients) ? order.clients[0] : order.clients
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
     const ownsOrder =
       client?.auth_user_id === user.id ||
       (client?.email && user.email && client.email.toLowerCase() === user.email.toLowerCase())
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       const { data: adminUsers, error: userError } = await service
         .from('users')
         .select('id, user_metadata')
-        .or('user_metadata->>role.eq.admin,email.ilike.%admin%')
+        .or('app_metadata->>role.eq.admin,email.ilike.%admin%')
         .limit(1)
 
       if (userError) {

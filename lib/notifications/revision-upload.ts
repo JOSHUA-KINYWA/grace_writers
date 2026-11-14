@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
 import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
@@ -44,7 +45,7 @@ export async function sendRevisionUploadedNotification(
   }
 
   const { data: uploaderData } = await service.auth.admin.getUserById(uploadedByUserId)
-  const isAdminUploader = uploaderData?.user?.user_metadata?.role === 'admin'
+  const isAdminUploader = isAdminUser(uploaderData?.user)
 
   if (isAdminUploader) {
     if (!order.clients?.email) return

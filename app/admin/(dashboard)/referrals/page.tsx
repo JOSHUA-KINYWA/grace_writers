@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ReferralAdminPanel from '@/components/admin/ReferralAdminPanel'
@@ -18,7 +19,7 @@ export default async function AdminReferralsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     redirect('/admin/login')
   }
 

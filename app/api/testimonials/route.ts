@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -90,7 +91,7 @@ export async function PUT(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Check if user is admin
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -135,7 +136,7 @@ export async function DELETE(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Check if user is admin
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

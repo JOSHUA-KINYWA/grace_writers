@@ -283,7 +283,7 @@ export default function OrderChat({ orderId, isAdmin = false, selectedMessageId 
         sender_id: user.id,
         sender_name: user.email?.split('@')[0] || 'User',
         content: inputMessage.trim() || `Shared ${selectedFiles.length} file(s)`,
-        is_admin: isAdmin || (user?.user_metadata?.role === 'admin'),
+        is_admin: isAdmin || (user?.app_metadata?.role === 'admin'),
         read_status: 'unread'
       }
 

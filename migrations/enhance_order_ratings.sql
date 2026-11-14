@@ -36,7 +36,7 @@ CREATE POLICY "Clients can view published reviews" ON public.order_ratings
     is_visible = true
     AND is_published = true
     AND (
-      (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+      (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
       OR auth.uid() IS NOT NULL
     )
   );

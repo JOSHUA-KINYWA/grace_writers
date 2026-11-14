@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
     const db = isAdmin
       ? createSupabaseService(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 })
     }
 
-    const isAdmin = user.user_metadata?.role === 'admin'
+    const isAdmin = isAdminUser(user)
     const service = createSupabaseService(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!

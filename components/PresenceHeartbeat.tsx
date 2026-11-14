@@ -30,7 +30,7 @@ export default function PresenceHeartbeat() {
       const user = await getCachedAuthUser(supabase)
       if (!active || !user) return
       userId = user.id
-      if (user.user_metadata?.role !== 'admin') {
+      if (user.app_metadata?.role !== 'admin') {
         fetch('/api/client/link-auth', { method: 'POST' }).catch(() => {})
       }
       await ping(true)

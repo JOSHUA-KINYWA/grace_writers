@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
@@ -10,7 +11,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     redirect('/admin/login')
   }
 

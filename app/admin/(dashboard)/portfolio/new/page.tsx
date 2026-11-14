@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import React from 'react'
 import Link from 'next/link'
 import PortfolioNewForm from '@/components/admin/PortfolioNewForm'
@@ -8,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 export default async function NewPortfolioPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.user_metadata?.role !== 'admin') redirect('/admin/login')
+  if (!user || !isAdminUser(user)) redirect('/admin/login')
 
   return (
     <div className="min-h-screen bg-gray-50">

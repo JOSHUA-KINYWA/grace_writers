@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import OrderButton from '@/components/OrderButton'
 
-export default async function ServiceDetailPage({ params }: { params: { slug: string } }) {
-  const service = await getServiceBySlug(params.slug).catch(() => null)
+export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const service = await getServiceBySlug(slug).catch(() => null)
   
   if (!service) {
     notFound()

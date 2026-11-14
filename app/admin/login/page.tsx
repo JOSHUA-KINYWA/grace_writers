@@ -29,15 +29,8 @@ export default function AdminLoginPage() {
     }
 
     if (data.user) {
-      const { data: userData } = await supabase.auth.getUser()
-      const role = userData.user?.user_metadata?.role
-      
-      if (role === 'admin') {
-        router.push('/admin')
-      } else {
-        setError('Access denied. Admin access required.')
-        await supabase.auth.signOut()
-      }
+      // The server validates the trusted app_metadata role and configured admin allowlist.
+      router.push('/admin')
     }
     setLoading(false)
   }

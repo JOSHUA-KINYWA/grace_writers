@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, client_id, authorized_amount, approved_release_amount, captured_amount, quote_amount, paid_amount, escrow_status, paypal_order_id')
+      .select('id, client_id, authorized_amount, approved_release_amount, captured_amount, quote_amount, paid_amount, escrow_status, paypal_order_id, paypal_authorization_id')
       .eq('id', orderId)
       .maybeSingle()
 
@@ -72,6 +72,10 @@ export async function POST(req: Request) {
 
     if (!clientRecord || !clientMatchesUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    if (!order.paypal_authorization_id || order.paypal_authorization_id !== authorizationId) {
+      return NextResponse.json({ error: 'PayPal authorization does not match this order' }, { status: 409 })
     }
 
     const authorizedAmount = Number(order.authorized_amount ?? 0)

@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         const { data: adminUsers, error: adminUserError } = await (supabase as any)
           .from('users')
           .select('id, user_metadata')
-          .or('user_metadata->>role.eq.admin,email.ilike.%admin%')
+          .or('app_metadata->>role.eq.admin,email.ilike.%admin%')
           .limit(1)
 
         if (adminUserError) {

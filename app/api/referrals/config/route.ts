@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from "next/server"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 
@@ -17,7 +18,7 @@ async function requireAdmin() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { supabase, user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
-  if (user.user_metadata?.role !== "admin") {
+  if (!isAdminUser(user)) {
     return { supabase, user, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   return { supabase, user, error: null }

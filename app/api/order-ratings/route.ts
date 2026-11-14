@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const isAdmin = user.user_metadata?.role === 'admin'
+  const isAdmin = isAdminUser(user)
   const service = getServiceClient()
 
   try {
@@ -178,7 +179,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.user_metadata?.role === 'admin'
+  const isAdmin = isAdminUser(user)
   const service = getServiceClient()
   const { searchParams } = new URL(req.url)
   const orderId = searchParams.get('order_id')
@@ -374,7 +375,7 @@ export async function PATCH(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -417,7 +418,7 @@ export async function DELETE(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

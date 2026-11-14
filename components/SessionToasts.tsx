@@ -23,7 +23,7 @@ export default function SessionToasts() {
         return
       }
 
-      const role = user.user_metadata?.role === 'admin' ? 'admin' : 'client'
+      const role = user.app_metadata?.role === 'admin' ? 'admin' : 'client'
       let clientId = user.user_metadata?.client_id as string | undefined
 
       if (!clientId && role === 'client') {

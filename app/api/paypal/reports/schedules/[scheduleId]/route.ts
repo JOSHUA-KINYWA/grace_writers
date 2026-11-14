@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { deletePayPalReportSchedule, updatePayPalReportSchedule } from '@/lib/paypal'
@@ -8,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ schedu
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -33,7 +34,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ sched
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    if (!user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

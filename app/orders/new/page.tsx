@@ -179,6 +179,8 @@ export default function NewOrderPage() {
     e.preventDefault()
     setSubmitting(true)
     setError('')
+    let createdOrderId: string | null = null
+    const uploadedFilePaths: string[] = []
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -238,12 +240,11 @@ export default function NewOrderPage() {
         .single()
 
       if (orderError) throw orderError
+      createdOrderId = createdOrder.id
 
       // Upload files after order is created (store bucket-relative paths)
       if (uploadedFiles.length > 0 && createdOrder?.id) {
         setUploadingFiles(true)
-        const filePaths: string[] = []
-
         for (const file of uploadedFiles) {
           const safeName = (file.name || 'attachment').replace(/[^\w.\- ]+/g, '').replace(/\s+/g, '_')
           const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}_${safeName}`
@@ -254,12 +255,12 @@ export default function NewOrderPage() {
             .upload(filePath, file, { cacheControl: '3600', upsert: false })
 
           if (uploadError) throw uploadError
-          filePaths.push(filePath)
+          uploadedFilePaths.push(filePath)
         }
 
         const { error: filesUpdateError } = await supabase
           .from('orders')
-          .update({ files_uploaded: filePaths, updated_at: new Date().toISOString() })
+          .update({ files_uploaded: uploadedFilePaths, updated_at: new Date().toISOString() })
           .eq('id', createdOrder.id)
 
         if (filesUpdateError) throw filesUpdateError
@@ -281,6 +282,18 @@ export default function NewOrderPage() {
 
       router.push('/dashboard?order=created')
     } catch (err: any) {
+      if (createdOrderId) {
+        try {
+          const rollback = await fetch('/api/orders/rollback-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: createdOrderId, filePaths: uploadedFilePaths }),
+          })
+          if (!rollback.ok) console.error('Could not fully roll back incomplete order creation:', await rollback.text())
+        } catch (rollbackError) {
+          console.error('Could not roll back incomplete order creation:', rollbackError)
+        }
+      }
       setError(err.message)
     } finally {
       setUploadingFiles(false)

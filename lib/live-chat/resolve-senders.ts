@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { nameFromUserMetadata } from '@/lib/utils/display-name'
 
 export async function resolveSenderNames(
@@ -23,7 +24,7 @@ export async function resolveSenderNames(
   for (const uid of unique) {
     if (map[uid]) continue
     const authUser = authData?.users?.find((u: { id: string }) => u.id === uid)
-    if (authUser?.user_metadata?.role === 'admin') {
+    if (isAdminUser(authUser)) {
       map[uid] = 'Support'
     } else {
       map[uid] =

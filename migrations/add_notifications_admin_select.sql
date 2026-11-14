@@ -5,5 +5,5 @@ CREATE POLICY "Admins read own notifications" ON public.notifications
   FOR SELECT
   USING (
     user_id = auth.uid()
-    AND (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    AND (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );

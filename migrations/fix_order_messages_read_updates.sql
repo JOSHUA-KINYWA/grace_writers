@@ -15,7 +15,7 @@ create policy "Users can update order message read status" on order_messages
       where o.id = order_messages.order_id
       and c.email = auth.jwt() ->> 'email'
     )
-    or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   )
   with check (
     exists (
@@ -24,6 +24,6 @@ create policy "Users can update order message read status" on order_messages
       where o.id = order_messages.order_id
       and c.email = auth.jwt() ->> 'email'
     )
-    or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 

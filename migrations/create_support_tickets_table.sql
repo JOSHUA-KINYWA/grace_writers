@@ -51,7 +51,7 @@ CREATE POLICY "Clients can read their own tickets" ON support_tickets
       WHERE c.id = support_tickets.client_id
       AND c.email = auth.jwt() ->> 'email'
     )
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 CREATE POLICY "Clients can create tickets" ON support_tickets
@@ -79,7 +79,7 @@ CREATE POLICY "Clients can update their own tickets" ON support_tickets
       WHERE c.id = support_tickets.client_id
       AND c.email = auth.jwt() ->> 'email'
     )
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 -- RLS Policies for support_ticket_messages
@@ -92,7 +92,7 @@ CREATE POLICY "Users can read ticket messages" ON support_ticket_messages
       WHERE st.id = support_ticket_messages.ticket_id
       AND c.email = auth.jwt() ->> 'email'
     )
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 CREATE POLICY "Users can insert ticket messages" ON support_ticket_messages
@@ -106,7 +106,7 @@ CREATE POLICY "Users can insert ticket messages" ON support_ticket_messages
         WHERE st.id = support_ticket_messages.ticket_id
         AND c.email = auth.jwt() ->> 'email'
       )
-      OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+      OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
     )
   );
 

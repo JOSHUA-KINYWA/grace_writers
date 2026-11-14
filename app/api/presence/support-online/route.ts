@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
@@ -21,7 +22,7 @@ export async function GET() {
 
     const { data: authData } = await service.auth.admin.listUsers({ perPage: 1000 })
     const adminIds = (authData?.users || [])
-      .filter((u) => u.user_metadata?.role === 'admin')
+      .filter((u) => isAdminUser(u))
       .map((u) => u.id)
 
     if (adminIds.length === 0) {

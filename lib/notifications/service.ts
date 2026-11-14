@@ -52,7 +52,7 @@ export async function notifyAllAdmins(input: {
   const adminIds = await getAdminAuthUserIds()
   if (!adminIds.length) {
     console.error(
-      '[notification] No admin users found. Set user_metadata.role=admin on your account, or set ADMIN_EMAIL to your login email.'
+      '[notification] No admin users found. Set app_metadata.role=admin or configure ADMIN_EMAIL to the admin login email.'
     )
     return { notified: 0 }
   }

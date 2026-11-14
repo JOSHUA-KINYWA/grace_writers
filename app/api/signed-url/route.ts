@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/lib/auth/admin'
 import { NextResponse, NextRequest } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -27,7 +28,7 @@ async function clientOwnsOrder(supabase: any, user: any, orderId: string) {
 }
 
 async function authorizeAndValidate(supabase: any, user: any, filePath: string) {
-  if (user.user_metadata?.role === 'admin') return { ok: true }
+  if (isAdminUser(user)) return { ok: true }
 
   const pathParts = filePath.split('/').filter(Boolean)
   const firstPart = pathParts[0]
@@ -88,7 +89,7 @@ async function authorizeAndValidate(supabase: any, user: any, filePath: string) 
 
   if (firstPart === 'avatars') {
     const ownerId = pathParts[1]
-    if (ownerId === user.id || user.user_metadata?.role === 'admin') return { ok: true }
+    if (ownerId === user.id || isAdminUser(user)) return { ok: true }
     return { ok: false, status: 403, message: 'Access denied to this file' }
   }
 

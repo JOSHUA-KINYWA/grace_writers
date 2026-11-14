@@ -218,7 +218,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <Link href={user?.user_metadata?.role === 'admin' ? '/admin' : '/dashboard'} 
+        <Link href={user?.app_metadata?.role === 'admin' ? '/admin' : '/dashboard'}
           className="inline-flex items-center gap-2 text-purple-700 hover:text-purple-800 mb-6 font-bold">
           <FaArrowLeft /> Back
         </Link>
