@@ -1,6 +1,7 @@
 DO $$
 DECLARE
   relation_kind "char";
+  existing_type_kind "char";
 BEGIN
   SELECT relkind INTO relation_kind
   FROM pg_class c
@@ -9,11 +10,13 @@ BEGIN
 
   IF relation_kind IS NULL THEN
     -- A standalone PostgreSQL type can reserve the name and block CREATE TABLE.
-    IF EXISTS (
-      SELECT 1 FROM pg_type t
+    SELECT t.typtype INTO existing_type_kind
+    FROM pg_type t
       JOIN pg_namespace n ON n.oid = t.typnamespace
-      WHERE n.nspname = 'public' AND t.typname = 'user_status'
-    ) THEN
+    WHERE n.nspname = 'public' AND t.typname = 'user_status';
+    IF existing_type_kind = 'd' THEN
+      ALTER DOMAIN public.user_status RENAME TO user_status_legacy_type_20261117;
+    ELSIF existing_type_kind IS NOT NULL THEN
       ALTER TYPE public.user_status RENAME TO user_status_legacy_type_20261117;
     END IF;
 
