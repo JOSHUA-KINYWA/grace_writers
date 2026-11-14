@@ -25,7 +25,7 @@ function AuthCallbackHandler() {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeError) throw exchangeError
           if (!active) return
-          router.replace(flow === 'recovery' ? '/account/change-password' : safeNext)
+          router.replace(flow === 'recovery' ? '/account/change-password?flow=recovery' : safeNext)
           return
         }
 
@@ -46,7 +46,7 @@ function AuthCallbackHandler() {
           if (verifyError) throw verifyError
           if (!active) return
           if (type === 'recovery') {
-            router.replace('/account/change-password')
+            router.replace('/account/change-password?flow=recovery')
           } else {
             router.replace(safeNext)
           }
@@ -64,13 +64,13 @@ function AuthCallbackHandler() {
             })
             if (setErr) throw setErr
             if (!active) return
-            router.replace(flow === 'recovery' ? '/account/change-password' : safeNext)
+            router.replace(flow === 'recovery' ? '/account/change-password?flow=recovery' : safeNext)
             return
           }
           const { data, error: sessionError } = await supabase.auth.getSession()
           if (sessionError) throw sessionError
           if (data.session) {
-            router.replace(flow === 'recovery' ? '/account/change-password' : safeNext)
+            router.replace(flow === 'recovery' ? '/account/change-password?flow=recovery' : safeNext)
             return
           }
         }

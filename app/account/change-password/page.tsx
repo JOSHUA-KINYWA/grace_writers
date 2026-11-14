@@ -29,43 +29,54 @@ function ChangePasswordContent() {
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    async function checkAuth() {
+      try {
+        // Check if this is a password reset link from Supabase (contains recovery code)
+        const code = searchParams.get('code')
 
-  async function checkAuth() {
-    try {
-      // Check if this is a password reset link from Supabase (contains recovery code)
-      const code = searchParams.get('code')
-      
-      if (code) {
-        // Exchange the recovery code for a session
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-        
-        if (exchangeError || !data.user) {
-          setError('Password reset link is invalid or expired. Please request a new one.')
+        if (code) {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (exchangeError || !data.user) {
+            setError('Password reset link is invalid or expired. Please request a new one.')
+            setIsChecking(false)
+            return
+          }
+
+          setIsResetFlow(true)
           setIsChecking(false)
           return
         }
-        
-        // Successfully exchanged code for session
-        setIsResetFlow(true)
-        setIsChecking(false)
-        return
-      }
 
-      // Regular flow: check if user is already logged in
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+        // The callback verifies recovery links and establishes the recovery session.
+        if (searchParams.get('flow') === 'recovery') {
+          const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+          if (sessionError || !user) {
+            setError('Password reset link is invalid or expired. Please request a new one.')
+            setIsChecking(false)
+            return
+          }
+          setIsResetFlow(true)
+          setIsChecking(false)
+          return
+        }
+
+        // Regular flow: check if user is already logged in.
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/login?next=/account/change-password')
+          return
+        }
+
+        setIsResetFlow(false)
+        setIsChecking(false)
+      } catch {
         router.push('/login?next=/account/change-password')
-        return
       }
-      
-      setIsResetFlow(false)
-      setIsChecking(false)
-    } catch (err) {
-      router.push('/login?next=/account/change-password')
     }
-  }
+
+    void checkAuth()
+  }, [router, searchParams, supabase])
 
   async function handleChangePassword() {
     setError('')
