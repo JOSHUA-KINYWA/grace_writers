@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { emailTemplates } from '@/lib/email-templates'
 import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
@@ -6,6 +7,12 @@ import { notifyAllAdmins } from '@/lib/notifications/service'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { orderId } = body
 
@@ -20,7 +27,7 @@ export async function POST(req: Request) {
 
     const { data: order, error: orderError } = await service
       .from('orders')
-      .select('*, clients!inner(id, email, name), services(title)')
+      .select('*, clients!inner(id, email, name, auth_user_id), services(title)')
       .eq('id', orderId)
       .single()
 
@@ -28,7 +35,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    const clientName = order.clients?.name || 'Client'
+    const client = Array.isArray(order.clients) ? order.clients[0] : order.clients
+    const isAdmin = user.user_metadata?.role === 'admin'
+    const ownsOrder =
+      client?.auth_user_id === user.id ||
+      (client?.email && user.email && client.email.toLowerCase() === user.email.toLowerCase())
+    if (!isAdmin && !ownsOrder) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const clientName = client?.name || 'Client'
     const orderTitle = order.title || 'New order'
 
     await notifyAllAdmins({
@@ -40,7 +56,7 @@ export async function POST(req: Request) {
 
     const html = emailTemplates.newOrderNotificationAdmin(
       clientName,
-      order.clients?.email || '',
+      client?.email || '',
       orderTitle,
       order.services?.title || 'N/A',
       order.word_count,

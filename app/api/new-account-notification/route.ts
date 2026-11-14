@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
-import { emailTemplates } from '@/lib/email-templates'
-import { sendEmailToAllAdmins } from '@/lib/email/admin-notify'
-import { notifyAllAdmins } from '@/lib/notifications/service'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { notifyNewAccount } from '@/lib/notifications/new-account'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || user.user_metadata?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
     const { clientName, clientEmail, clientPhone, clientCompany } = body
 
@@ -12,26 +17,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing clientEmail' }, { status: 400 })
     }
 
-    await notifyAllAdmins({
-      orderId: null,
-      type: 'admin_new_signup',
-      title: 'New client signup',
-      message: `${clientName || clientEmail} registered`,
-    }).catch(() => {})
-
-    const emailResult = await sendEmailToAllAdmins({
-      kind: 'admin_new_signup',
-      subject: `New client signup — ${clientName || clientEmail}`,
-      html: emailTemplates.newAccountNotification(
-        clientName,
-        clientEmail,
-        clientPhone,
-        clientCompany
-      ),
+    await notifyNewAccount({
+      clientName: String(clientName || clientEmail),
+      clientEmail: String(clientEmail),
+      clientPhone: clientPhone ? String(clientPhone) : null,
+      clientCompany: clientCompany ? String(clientCompany) : null,
     })
-    if (emailResult.errors.length) {
-      console.error('Admin signup email issues:', emailResult.errors)
-    }
 
     return NextResponse.json({ success: true })
   } catch (err) {

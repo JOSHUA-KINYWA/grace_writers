@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
-    const { order_id, order_title, client_name, reason } = body || {}
+    const { order_id, reason } = body || {}
 
     if (!order_id) {
       return NextResponse.json({ error: 'Missing order_id' }, { status: 400 })
@@ -21,6 +28,23 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
+
+    const { data: order } = await service
+      .from('orders')
+      .select('id, title, client_id, clients!client_id(auth_user_id, email, name)')
+      .eq('id', order_id)
+      .maybeSingle()
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+    const client = Array.isArray(order.clients) ? order.clients[0] : order.clients
+    const isAdmin = user.user_metadata?.role === 'admin'
+    const ownsOrder =
+      client?.auth_user_id === user.id ||
+      (client?.email && user.email && client.email.toLowerCase() === user.email.toLowerCase())
+    if (!isAdmin && !ownsOrder) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Get the first admin user from profiles, falling back to auth user lookup
     let adminUserId: string | null = null
@@ -64,7 +88,7 @@ export async function POST(req: Request) {
           order_id,
           type: 'revision',
           title: 'Revision Requested',
-          message: `${client_name} requested revision for "${order_title}": ${reason}`
+          message: `${client?.name || 'Client'} requested revision for "${order.title || 'Order'}": ${reason || 'See order for details'}`
         })
 
       if (notifyError) {

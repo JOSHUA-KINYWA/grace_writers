@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendAppEmail } from '@/lib/email/send'
 import type { AppEmailKind } from '@/lib/email/policy'
 import { canSendEmail } from '@/lib/email/policy'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || user.user_metadata?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const raw = await req.text()
     let body: Record<string, unknown>
     try {

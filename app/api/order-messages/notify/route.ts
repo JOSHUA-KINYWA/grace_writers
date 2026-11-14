@@ -38,6 +38,15 @@ export async function POST(req: Request) {
     }
 
     const clientRow = Array.isArray(order.clients) ? order.clients[0] : order.clients
+    if (!isAdmin) {
+      const ownsOrder =
+        clientRow?.auth_user_id === user.id ||
+        (clientRow?.email && user.email && clientRow.email.toLowerCase() === user.email.toLowerCase())
+      if (!ownsOrder) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+
     const preview = String(content || 'New message').slice(0, 120)
     const appUrl = getAppUrl()
 

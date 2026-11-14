@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createSupabaseService } from '@supabase/supabase-js'
 import { sendSignupConfirmationEmail } from '@/lib/auth/send-confirmation'
 import { getAppUrl } from '@/lib/app-url'
+import { notifyNewAccount } from '@/lib/notifications/new-account'
 
 export async function POST(req: Request) {
   try {
@@ -85,6 +86,9 @@ export async function POST(req: Request) {
     if (!sent && confirmError) {
       console.error('[signup] confirmation email failed:', confirmError)
     }
+
+    await notifyNewAccount({ clientName: name, clientEmail: email, clientPhone: phone })
+
     return NextResponse.json({
       success: true,
       userId,

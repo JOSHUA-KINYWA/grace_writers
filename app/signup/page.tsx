@@ -89,20 +89,6 @@ function SignupPageContent() {
       return
     }
 
-    try {
-      await fetch('/api/new-account-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientName: formData.name,
-          clientEmail: formData.email,
-          clientPhone: formData.phone,
-        }),
-      })
-    } catch (error_) {
-      console.error('Failed to send account notification:', error_)
-    }
-
     setRegisteredEmail(formData.email)
     setVerifyPending(true)
     setVerifyMessage(
