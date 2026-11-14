@@ -44,6 +44,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   }
 
   const quoteAmount = Number(order.quote_amount ?? 0)
+  const currencyCode = order.currency_code || 'USD'
   const paidAmount = Number(order.paid_amount ?? 0)
   const authorizedAmount = Number(order.authorized_amount ?? 0)
   const capturedAmount = Number(order.captured_amount ?? 0)
@@ -52,6 +53,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
   const normalizedStatus = normalizeStatus(order.status)
   const canAuthorizePaymentStatuses = ['quote_sent', 'in_progress', 'completed']
   const showPayPalButton =
+    currencyCode === 'USD' &&
     outstandingAmount > 0 &&
     canAuthorizePaymentStatuses.includes(normalizedStatus) &&
     escrowStatus === 'pending'
@@ -65,7 +67,7 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
     capturedAmount < authorizedAmount
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+    new Intl.NumberFormat(currencyCode === 'KES' ? 'en-KE' : 'en-US', { style: 'currency', currency: currencyCode }).format(value)
 
   async function handleReleasePaymentSuccess(data: any) {
     setOrder({
@@ -461,6 +463,12 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                       <span>Word count</span>
                       <span className="font-semibold text-slate-900">{order.word_count ? order.word_count.toLocaleString() : 'N/A'}</span>
                     </div>
+                    {order.billing_unit === 'page' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Page pricing</span>
+                        <span className="font-semibold text-slate-900">{Number(order.page_count || 0).toLocaleString()} pages × {formatCurrency(Number(order.rate_per_page || 0))}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -504,6 +512,12 @@ export default function ClientOrderDetail({ order: initialOrder, clientId }: Cli
                       setTimeout(() => setPaymentAuthorized(false), 3000)
                     }}
                   />
+                )}
+
+                {currencyCode === 'KES' && outstandingAmount > 0 && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    Payment for this order is in KES. Please contact the team for payment instructions; your order balance will update after payment is recorded.
+                  </p>
                 )}
 
                 {showEscrowBalance && (

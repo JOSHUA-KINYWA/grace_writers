@@ -151,6 +151,10 @@ export interface Database {
           quote_amount: number | null
           paid_amount: number | null
           payment_status: string | null
+          currency_code: string
+          billing_unit: string
+          page_count: number | null
+          rate_per_page: number | null
           paypal_order_id: string | null
           paypal_authorization_id: string | null
           total_revisions_requested: number | null

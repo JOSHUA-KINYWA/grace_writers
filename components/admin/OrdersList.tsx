@@ -216,7 +216,7 @@ export default function OrdersList({ initialOrders, services }: OrdersListProps)
                       {order.quote_amount ? (
                         <div>
                           <div className="font-medium">
-                            ${order.paid_amount || 0} / ${order.quote_amount}
+                            {order.currency_code || 'USD'} {order.paid_amount || 0} / {order.currency_code || 'USD'} {order.quote_amount}
                           </div>
                           <div className={`text-xs ${order.payment_status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
                             {order.payment_status}

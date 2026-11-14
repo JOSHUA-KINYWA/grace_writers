@@ -19,13 +19,16 @@ export async function POST(req: Request) {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, client_id, quote_amount, paid_amount, payment_status')
+      .select('id, client_id, quote_amount, paid_amount, payment_status, currency_code')
       .eq('id', orderId)
       .maybeSingle()
 
     if (orderError) throw orderError
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+    if ((order.currency_code || 'USD') !== 'USD') {
+      return NextResponse.json({ error: 'Online PayPal checkout is only enabled for USD orders. Contact the team for payment instructions.' }, { status: 400 })
     }
 
     const { data: clientRecord, error: clientError } = await supabase

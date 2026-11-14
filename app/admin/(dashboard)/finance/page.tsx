@@ -9,19 +9,17 @@ type FinanceOrder = {
   payment_status: string | null
   quote_amount: number | null
   paid_amount: number | null
+  currency_code: string
   created_at: string | null
   clients: { name: string | null; email: string | null } | Array<{ name: string | null; email: string | null }> | null
 }
 
 type FinanceData = {
-  totals: { quoted: number; collected: number; outstanding: number }
+  totalsByCurrency: Record<string, { quoted: number; collected: number; outstanding: number }>
   orders: FinanceOrder[]
 }
 
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-})
+const money = (value: number, currency: string) => new Intl.NumberFormat(currency === 'KES' ? 'en-KE' : 'en-US', { style: 'currency', currency }).format(value)
 
 function getClient(order: FinanceOrder) {
   return Array.isArray(order.clients) ? order.clients[0] : order.clients
@@ -68,15 +66,15 @@ export default function FinancePage() {
       )}
 
       <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-        {[
-          { label: 'Quoted across orders', value: data?.totals.quoted },
-          { label: 'Payments recorded', value: data?.totals.collected },
-          { label: 'Outstanding balance', value: data?.totals.outstanding },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        {Object.entries(data?.totalsByCurrency || { USD: { quoted: 0, collected: 0, outstanding: 0 } }).flatMap(([currency, totals]) => [
+          { label: `Quoted (${currency})`, value: totals.quoted, currency },
+          { label: `Payments recorded (${currency})`, value: totals.collected, currency },
+          { label: `Outstanding (${currency})`, value: totals.outstanding, currency },
+        ]).map((item) => (
+          <div key={`${item.label}-${item.currency}`} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm text-slate-600">{item.label}</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">
-              {loading ? 'Loading…' : money.format(item.value || 0)}
+              {loading ? 'Loading…' : money(item.value, item.currency)}
             </p>
           </div>
         ))}
@@ -110,8 +108,8 @@ export default function FinancePage() {
                     <tr key={order.id} className="border-t border-slate-100 text-sm">
                       <td className="px-5 py-4 font-medium text-slate-900">{order.title || 'Untitled order'}</td>
                       <td className="px-5 py-4 text-slate-600">{client?.name || client?.email || '—'}</td>
-                      <td className="px-5 py-4 text-slate-700">{money.format(Number(order.quote_amount || 0))}</td>
-                      <td className="px-5 py-4 text-slate-700">{money.format(Number(order.paid_amount || 0))}</td>
+                      <td className="px-5 py-4 text-slate-700">{money(Number(order.quote_amount || 0), order.currency_code || 'USD')}</td>
+                      <td className="px-5 py-4 text-slate-700">{money(Number(order.paid_amount || 0), order.currency_code || 'USD')}</td>
                       <td className="px-5 py-4 capitalize text-slate-700">{(order.payment_status || 'unpaid').replace(/_/g, ' ')}</td>
                       <td className="px-5 py-4 text-slate-600">
                         {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}

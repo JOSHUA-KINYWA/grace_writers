@@ -13,6 +13,10 @@ type OrderRow = {
   payment_status: string | null
   quote_amount: number | null
   paid_amount: number | null
+  currency_code: string
+  billing_unit: string
+  page_count: number | null
+  rate_per_page: number | null
   admin_notes: string | null
 }
 
@@ -34,7 +38,34 @@ function buildOrderUpdatePayload(body: any, currentOrder: OrderRow) {
   }
 
   if (nextStatus !== null) payload.status = nextStatus
-  if (body?.quote_amount !== undefined) payload.quote_amount = body.quote_amount
+  if (body?.currency_code !== undefined) {
+    const currency = String(body.currency_code).toUpperCase()
+    if (!['USD', 'KES'].includes(currency)) throw new Error('Currency must be USD or KES')
+    payload.currency_code = currency
+  }
+  if (body?.billing_unit !== undefined) {
+    const unit = String(body.billing_unit)
+    if (!['custom', 'page'].includes(unit)) throw new Error('Billing unit must be custom or page')
+    payload.billing_unit = unit
+  }
+  if (body?.page_count !== undefined) {
+    const count = body.page_count === null || body.page_count === '' ? null : Number(body.page_count)
+    if (count !== null && (!Number.isInteger(count) || count < 0)) throw new Error('Page count must be a whole number of zero or more')
+    payload.page_count = count
+  }
+  if (body?.rate_per_page !== undefined) {
+    const rate = body.rate_per_page === null || body.rate_per_page === '' ? null : Number(body.rate_per_page)
+    if (rate !== null && (!Number.isFinite(rate) || rate < 0)) throw new Error('Rate per page must be zero or more')
+    payload.rate_per_page = rate
+  }
+  const nextBillingUnit = payload.billing_unit ?? currentOrder.billing_unit
+  const nextPageCount = payload.page_count ?? currentOrder.page_count
+  const nextRate = payload.rate_per_page ?? currentOrder.rate_per_page
+  if (nextBillingUnit === 'page') {
+    if (nextPageCount == null || nextRate == null) throw new Error('Set both page count and rate per page before saving page-based pricing')
+    payload.quote_amount = Number((nextPageCount * nextRate).toFixed(2))
+  }
+  if (body?.quote_amount !== undefined && nextBillingUnit !== 'page') payload.quote_amount = body.quote_amount
   if (body?.paid_amount !== undefined) payload.paid_amount = body.paid_amount
   if (paymentStatus !== null) payload.payment_status = paymentStatus
   if (body?.admin_notes !== undefined) payload.admin_notes = body.admin_notes
@@ -77,7 +108,7 @@ async function requireAdmin(supabase: SupabaseClient) {
 async function getOrder(supabase: SupabaseClient, orderId: string) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, client_id, title, status, payment_status, quote_amount, paid_amount, admin_notes')
+    .select('id, client_id, title, status, payment_status, quote_amount, paid_amount, admin_notes, currency_code, billing_unit, page_count, rate_per_page')
     .eq('id', orderId)
     .maybeSingle()
   if (error) throw error
@@ -208,7 +239,13 @@ export async function POST(req: Request) {
     const currentOrder = await getOrder(supabase, orderId)
     if (!currentOrder) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
-    const updateData = buildOrderUpdatePayload(body, currentOrder)
+    let updateData: Record<string, any>
+    try {
+      updateData = buildOrderUpdatePayload(body, currentOrder)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid order pricing'
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
 
     const { error: updateErr } = await supabase
       .from('orders')
@@ -225,6 +262,9 @@ export async function POST(req: Request) {
     const quoteChanged =
       body?.quote_amount !== undefined &&
       Number(body.quote_amount) !== Number(currentOrder.quote_amount ?? 0)
+      || (body?.currency_code !== undefined && String(body.currency_code).toUpperCase() !== currentOrder.currency_code)
+      || (body?.page_count !== undefined && Number(body.page_count) !== Number(currentOrder.page_count ?? 0))
+      || (body?.rate_per_page !== undefined && Number(body.rate_per_page) !== Number(currentOrder.rate_per_page ?? 0))
     const paidAmountChanged =
       body?.paid_amount !== undefined &&
       Number(body.paid_amount) !== Number(currentOrder.paid_amount ?? 0)

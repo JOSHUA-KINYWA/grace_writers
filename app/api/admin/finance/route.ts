@@ -25,6 +25,7 @@ export async function GET() {
       payment_status: string | null
       quote_amount: number | null
       paid_amount: number | null
+      currency_code: string
       created_at: string | null
       clients: { name: string | null; email: string | null } | Array<{ name: string | null; email: string | null }> | null
     }> = []
@@ -32,7 +33,7 @@ export async function GET() {
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const { data, error } = await service
         .from('orders')
-        .select('id, title, status, payment_status, quote_amount, paid_amount, created_at, clients!client_id(name, email)')
+        .select('id, title, status, payment_status, quote_amount, paid_amount, currency_code, created_at, clients!client_id(name, email)')
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1)
 
@@ -42,19 +43,21 @@ export async function GET() {
       if (rows.length < PAGE_SIZE) break
     }
 
-    const totals = orders.reduce(
+    const totalsByCurrency = orders.reduce<Record<string, { quoted: number; collected: number; outstanding: number }>>(
       (result, order) => {
         const quoted = Number(order.quote_amount || 0)
         const paid = Number(order.paid_amount || 0)
-        result.quoted += Number.isFinite(quoted) ? quoted : 0
-        result.collected += Number.isFinite(paid) ? paid : 0
-        result.outstanding += Math.max(0, (Number.isFinite(quoted) ? quoted : 0) - (Number.isFinite(paid) ? paid : 0))
+        const currency = order.currency_code || 'USD'
+        result[currency] ||= { quoted: 0, collected: 0, outstanding: 0 }
+        result[currency].quoted += Number.isFinite(quoted) ? quoted : 0
+        result[currency].collected += Number.isFinite(paid) ? paid : 0
+        result[currency].outstanding += Math.max(0, (Number.isFinite(quoted) ? quoted : 0) - (Number.isFinite(paid) ? paid : 0))
         return result
       },
-      { quoted: 0, collected: 0, outstanding: 0 }
+      {}
     )
 
-    return NextResponse.json({ totals, orders })
+    return NextResponse.json({ totalsByCurrency, orders })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load order payments'
     console.error('[admin/finance]', message)

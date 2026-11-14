@@ -138,6 +138,10 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
     status: order.status,
     quote_amount: order.quote_amount || '',
     paid_amount: order.paid_amount || '',
+    currency_code: order.currency_code || 'USD',
+    billing_unit: order.billing_unit || 'custom',
+    page_count: order.page_count ?? '',
+    rate_per_page: order.rate_per_page ?? '',
     payment_status: order.payment_status || 'pending',
     admin_notes: order.admin_notes || '',
   })
@@ -337,6 +341,10 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
           status: formData.status,
           quote_amount: formData.quote_amount ? Number.parseFloat(formData.quote_amount) : null,
           paid_amount: formData.paid_amount ? Number.parseFloat(formData.paid_amount) : null,
+          currency_code: formData.currency_code,
+          billing_unit: formData.billing_unit,
+          page_count: formData.page_count === '' ? null : Number(formData.page_count),
+          rate_per_page: formData.rate_per_page === '' ? null : Number(formData.rate_per_page),
           payment_status: formData.payment_status,
           admin_notes: formData.admin_notes,
         }),
@@ -600,8 +608,54 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
             </div>
 
             <div>
+              <label htmlFor="order-currency" className="block text-sm font-bold text-gray-700 mb-2">
+                Currency
+              </label>
+              <select
+                id="order-currency"
+                value={formData.currency_code}
+                onChange={(e) => setFormData({ ...formData, currency_code: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 font-semibold"
+              >
+                <option value="USD">USD — US Dollar</option>
+                <option value="KES">KES — Kenyan Shilling</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="order-billing-unit" className="block text-sm font-bold text-gray-700 mb-2">
+                Pricing method
+              </label>
+              <select
+                id="order-billing-unit"
+                value={formData.billing_unit}
+                onChange={(e) => setFormData({ ...formData, billing_unit: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 font-semibold"
+              >
+                <option value="custom">Set total manually</option>
+                <option value="page">Price per page</option>
+              </select>
+            </div>
+
+            {formData.billing_unit === 'page' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-purple-200 bg-purple-50 p-4">
+                <div>
+                  <label htmlFor="order-page-count" className="block text-sm font-bold text-gray-700 mb-2">Billable pages</label>
+                  <input id="order-page-count" type="number" min="0" step="1" value={formData.page_count} onChange={(e) => setFormData({ ...formData, page_count: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
+                </div>
+                <div>
+                  <label htmlFor="order-rate-per-page" className="block text-sm font-bold text-gray-700 mb-2">Rate per page ({formData.currency_code})</label>
+                  <input id="order-rate-per-page" type="number" min="0" step="0.01" value={formData.rate_per_page} onChange={(e) => setFormData({ ...formData, rate_per_page: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
+                </div>
+                <p className="sm:col-span-2 text-sm text-purple-900">
+                  Total quote: {formData.currency_code} {((Number(formData.page_count) || 0) * (Number(formData.rate_per_page) || 0)).toLocaleString()}
+                </p>
+              </div>
+            )}
+
+            {formData.billing_unit !== 'page' && <div>
               <label htmlFor="order-quote-amount" className="block text-sm font-bold text-gray-700 mb-2">
-                Quote Amount ($)
+                Quote Amount ({formData.currency_code})
               </label>
               <input
                 id="order-quote-amount"
@@ -612,11 +666,11 @@ export default function OrderManageForm({ order: initialOrder }: Readonly<OrderM
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold"
                 placeholder="0.00"
               />
-            </div>
+            </div>}
 
             <div>
               <label htmlFor="order-paid-amount" className="block text-sm font-bold text-gray-700 mb-2">
-                Paid Amount ($)
+                Paid Amount ({formData.currency_code})
               </label>
               <input
                 id="order-paid-amount"
